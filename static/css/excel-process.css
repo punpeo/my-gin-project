@@ -1,0 +1,96 @@
+/* Excel处理模块核心样式 - 与现有窗口风格对齐 */
+.excel-process-window {
+    font-family: "Microsoft Yahei", sans-serif;
+    max-width: 600px; /* 限制最大宽度，适配不同屏幕 */
+    margin: 0 auto;
+    padding: 20px;
+    box-sizing: border-box;
+}
+
+.excel-process-window .window-title {
+    font-size: 18px;
+    font-weight: 600;
+    color: #2c3e50;
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #e6e6e6;
+}
+
+/* 表单容器整体样式 */
+.excel-form-container {
+    margin-bottom: 24px;
+}
+
+/* 基础表单组样式 */
+.excel-process-window .form-group {
+    margin-bottom: 16px; /* 优化表单组间距 */
+}
+
+/* 同行表单组容器（核心：Flex布局实现同行） */
+.excel-process-window .form-group-row {
+    display: flex;
+    gap: 12px; /* 列之间的间距 */
+    margin-bottom: 16px;
+}
+
+/* 同行表单组的子项 */
+.excel-process-window .form-group-row .form-group-item {
+    flex: 1; /* 等分宽度 */
+}
+
+.excel-process-window .form-group label,
+.excel-process-window .form-group-item label {
+    display: block;
+    margin-bottom: 6px;
+    font-weight: 500;
+    color: #333;
+    font-size: 14px;
+}
+
+/* 必填项标识 */
+.required-tip {
+    color: #dc3545;
+    margin-left: 4px;
+    font-size: 12px;
+}
+
+/* 表单输入框样式（统一规范） */
+.excel-process-window .form-control {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #ced4da;
+    border-radius: 6px;
+    font-size: 14px;
+    box-sizing: border-box;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.excel-process-window .form-control:focus {
+    outline: none;
+    border-color: #007bff; /* 主色调聚焦 */
+    box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.1);
+}
+
+/* 表单提示文字 */
+.form-tip {
+    font-size: 12px;
+    color: #6c757d;
+    margin-top: 4px;
+    line-height: 1.4;
+}
+
+/* 按钮容器样式 */
+.btn-container {
+    text-align: center; /* 按钮居中 */
+    margin-bottom: 20px;
+}
+
+.excel-process-window .btn-primary {
+    background-color: #007bff;
+    color: #fff;
+    border: none;
+    padding: 12px 30px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+}

@@ -1,0 +1,11 @@
+server:
+  addr: ":8080"
+log:
+  level: "info"
+  path: "./logs"
+# 库存清理定时任务配置
+stock_cleanup:
+  enable: true               # 是否启用定时清理任务
+  cron_expression: "0 0 0 * * *"  # （可自定义，如 "0 30 23 * * *" 表示每天23:30执行）
+  base_path: "E:\\kucun"         # 默认清理目录
+  base_file_name: "kucun.xlsx"   # 基准文件名

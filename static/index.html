@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Go-Gin 6窗口业务系统</title>
+    <!-- 公共基础样式（相对路径：static/css/） -->
+    <link rel="stylesheet" href="./css/base.css">
+    <!-- 各业务模块样式 -->
+    <link rel="stylesheet" href="./css/stock.css">
+    <link rel="stylesheet" href="./css/order.css">
+    <link rel="stylesheet" href="./css/shop-order.css">
+    <link rel="stylesheet" href="./css/cycle-sales.css">
+    <!-- 新增Excel处理模块样式 -->
+    <link rel="stylesheet" href="./css/excel-process.css">
+    <!-- Excel填充模块样式（独立文件引用） -->
+    <link rel="stylesheet" href="./css/excel-fill.css">
+</head>
+
+<body>
+    <div class="grid-container">
+        <!-- 1. Excel数据匹配填充窗口（替换原打招呼窗口） -->
+        <div class="window-card excel-fill-window">
+            <div class="window-title">📊 Excel数据匹配填充</div>
+            <div class="window-content">
+                <form id="fillForm">
+                    <!-- 文件根目录输入（设置默认值） -->
+                    <div class="form-group">
+                        <label class="form-label">文件根目录：<span class="required">*</span></label>
+                        <input type="text" name="root_dir" id="rootDir" value="E:\Xyq-Works\Excel_Fill"
+                            placeholder="例如：E:\Xyq-Works\Excel_Fill" class="form-control" required>
+                    </div>
+
+                    <!-- 列配置区域（同行布局） -->
+                    <div class="form-group-row">
+                        <div class="form-group-item">
+                            <label class="form-label">待输入表匹配列：<span class="required">*</span></label>
+                            <input type="text" name="source_match_col" id="sourceMatchCol" placeholder="例如：A"
+                                class="form-control" required>
+                            <div class="form-tip"></div>
+                        </div>
+                        <div class="form-group-item">
+                            <label class="form-label">待输入表填充列：<span class="required">*</span></label>
+                            <input type="text" name="source_fill_col" id="sourceFillCol" placeholder="例如：B"
+                                class="form-control" required>
+                            <div class="form-tip"></div>
+                        </div>
+                    </div>
+
+                    <div class="form-group-row">
+                        <div class="form-group-item">
+                            <label class="form-label">目标表匹配列：<span class="required">*</span></label>
+                            <input type="text" name="target_match_col" id="targetMatchCol" placeholder="例如：A"
+                                class="form-control" required>
+                            <div class="form-tip"></div>
+                        </div>
+                        <div class="form-group-item">
+                            <label class="form-label">目标表取值列：<span class="required">*</span></label>
+                            <input type="text" name="target_value_col" id="targetValueCol" placeholder="例如：C"
+                                class="form-control" required>
+                            <div class="form-tip"></div>
+                        </div>
+                    </div>
+
+                    <!-- 按钮容器 -->
+                    <div class="btn-container">
+                        <button type="submit" id="fillBtn" class="btn-primary">开始匹配填充</button>
+                    </div>
+                </form>
+
+                <!-- 结果提示区域 -->
+                <div id="fillResult" class="result" style="display: none; margin-top: 16px;"></div>
+            </div>
+        </div>
+        <!-- 2. 库存统计窗口（保持不变） -->
+        <div class="window-card stock-window">
+            <div class="window-title">📊 库存统计</div>
+            <div class="window-content">
+                <!-- 库存窗口核心表单区域 -->
+                <div class="form-container">
+                    <div class="form-group">
+                        <label for="basePath">文件根目录：</label>
+                        <div class="input-wrapper">
+                            <input type="text" id="basePath" placeholder="例如：E:\kucun" value="E:\kucun">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="baseFileName">基准文件名：</label>
+                        <div class="input-wrapper">
+                            <input type="text" id="baseFileName" placeholder="例如：kucun.xlsx" value="kucun.xlsx">
+                        </div>
+                    </div>
+                    <!-- 合并：统计/删除共用一个日期输入框 -->
+                    <div class="form-group">
+                        <label for="operateDate">操作日期：</label>
+                        <div class="input-wrapper">
+                            <input type="text" id="operateDate" placeholder="请输入日期（格式：x月x日）" value="1月19日">
+                            <span id="dateTip" class="tip success">✅ 格式正确</span>
+                        </div>
+                    </div>
+
+                    <!-- 结果提示 -->
+                    <div id="stockResult" class="result"></div>
+                </div>
+
+                <!-- 按钮容器 -->
+                <div class="btn-container">
+                    <div class="btn-group" style="display: flex; gap: 12px; width: 100%;">
+                        <button id="statBtn" class="btn-primary" style="flex: 1;">执行统计</button>
+                        <button id="deleteColBtn" class="btn-primary"
+                            style="flex: 1; background-color: #dc3545;">删除日期列</button>
+                        <button id="cleanupBtn" class="btn-primary"
+                            style="flex: 1; background-color: #ffc107; color: #000;">清理文件</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 3. 订单汇总窗口（内容不变） -->
+        <div class="window-card order-summary-window">
+            <div class="window-title">📋 订单汇总</div>
+            <div class="window-content">
+                <button id="downloadTemplateBtn">📥 补单返款汇总.xlsx模板</button>
+                <div class="form-group">
+                    <label for="usernameSelect">👤 负责人：</label>
+                    <select id="usernameSelect">
+                        <option value="">默认（不指定）</option>
+                        <option value="曾庆隆">曾庆隆</option>
+                        <option value="唐剑雨">唐剑雨</option>
+                        <option value="杨婷">杨婷</option>
+                        <option value="陈文海">陈文海</option>
+                        <option value="唐何新">唐何新</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="excelFile">📤 上传文件：</label>
+                    <input type="file" id="excelFile" accept=".xlsx,.xls">
+                </div>
+                <button id="uploadProcessBtn">🚀 上传并处理数据</button>
+                <div id="orderResult"></div>
+                <div id="duplicateDetail">
+                    <div style="font-weight:bold; color:#dc3545; margin-bottom:5px;">⚠️ 重复订单详情：</div>
+                    <div id="duplicateList"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 4. 店铺订单统计窗口（内容不变） -->
+        <div class="window-card placeholder-window placeholder-window-5 shop-order-window">
+            <div class="window-title">🏪 补单店铺订单统计</div>
+            <div class="window-content">
+                <div class="form-group">
+                    <label for="shopOrderBasePath">文件根目录：</label>
+                    <input type="text" id="shopOrderBasePath" placeholder="例如：E:\tongjidingdan"
+                        value="E:\tongjidingdan">
+                </div>
+                <button id="shopOrderStatBtn">执行统计</button>
+                <div id="shopOrderResult" class="result"></div>
+            </div>
+        </div>
+
+        <!-- 5. 产品周期销量统计窗口 -->
+        <div class="window-card cycle-sales-window">
+            <div class="window-title">
+                <span class="title-icon">📈</span>
+                <span class="title-text">产品周期销量统计</span>
+            </div>
+            <div class="window-content">
+                <!-- 基础路径配置 -->
+                <div class="form-group">
+                    <label for="cycleBasePath">文件根目录：</label>
+                    <input type="text" id="cycleBasePath" placeholder="例如：E:\kucun" value="E:\kucun">
+                </div>
+                <div class="form-group">
+                    <label for="cycleBaseFileName">基准文件名：</label>
+                    <input type="text" id="cycleBaseFileName" placeholder="例如：kucun.xlsx" value="kucun.xlsx">
+                </div>
+
+                <!-- 列选择配置（核心新增） -->
+                <div class="form-group column-select-group">
+                    <div class="column-select-wrapper">
+                        <div class="column-select-item">
+                            <label for="startColumn">起始列 ：</label>
+                            <div class="column-select-box">
+                                <select id="startColumn" class="column-select">
+                                    <!-- 26字母选项 -->
+                                    <option value="A">A</option>
+                                    <option value="B">B</option>
+                                    <option value="C" selected>C</option>
+                                    <option value="D">D</option>
+                                    <option value="E">E</option>
+                                    <option value="F">F</option>
+                                    <option value="G">G</option>
+                                    <option value="H">H</option>
+                                    <option value="I">I</option>
+                                    <option value="J">J</option>
+                                    <option value="K">K</option>
+                                    <option value="L">L</option>
+                                    <option value="M">M</option>
+                                    <option value="N">N</option>
+                                    <option value="O">O</option>
+                                    <option value="P">P</option>
+                                    <option value="Q">Q</option>
+                                    <option value="R">R</option>
+                                    <option value="S">S</option>
+                                    <option value="T">T</option>
+                                    <option value="U">U</option>
+                                    <option value="V">V</option>
+                                    <option value="W">W</option>
+                                    <option value="X">X</option>
+                                    <option value="Y">Y</option>
+                                    <option value="Z">Z</option>
+                                    <option value="AA">AA</option>
+                                    <option value="AB">AB</option>
+                                    <option value="AC">AC</option>
+                                    <option value="AD">AD</option>
+                                    <option value="AE">AE</option>
+                                    <option value="AF">AF</option>
+                                    <option value="AG">AG</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="column-select-item">
+                            <label for="endColumn">结束列 ：</label>
+                            <div class="column-select-box">
+                                <select id="endColumn" class="column-select">
+                                    <!-- 26字母选项 -->
+                                    <option value="A">A</option>
+                                    <option value="B">B</option>
+                                    <option value="C">C</option>
+                                    <option value="D" selected>D</option>
+                                    <option value="E">E</option>
+                                    <option value="F">F</option>
+                                    <option value="G">G</option>
+                                    <option value="H">H</option>
+                                    <option value="I">I</option>
+                                    <option value="J">J</option>
+                                    <option value="K">K</option>
+                                    <option value="L">L</option>
+                                    <option value="M">M</option>
+                                    <option value="N">N</option>
+                                    <option value="O">O</option>
+                                    <option value="P">P</option>
+                                    <option value="Q">Q</option>
+                                    <option value="R">R</option>
+                                    <option value="S">S</option>
+                                    <option value="T">T</option>
+                                    <option value="U">U</option>
+                                    <option value="V">V</option>
+                                    <option value="W">W</option>
+                                    <option value="X">X</option>
+                                    <option value="Y">Y</option>
+                                    <option value="Z">Z</option>
+                                    <option value="AA">AA</option>
+                                    <option value="AB">AB</option>
+                                    <option value="AC">AC</option>
+                                    <option value="AD">AD</option>
+                                    <option value="AE">AE</option>
+                                    <option value="AF">AF</option>
+                                    <option value="AG">AG</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 执行按钮 -->
+                <button id="cycleSalesBtn">执行周期销量统计</button>
+                <!-- 结果提示 -->
+                <div id="cycleSalesResult" class="result"></div>
+            </div>
+        </div>
+
+        <!-- 6. Excel分组汇总窗口（修复核心区域+同行布局优化） -->
+        <div class="window-card excel-process-window">
+            <div class="window-title">📑 Excel分组汇总</div>
+            <div class="window-content">
+                <!-- 表单区域（重构为同行布局） -->
+                <!-- 根目录：单独一行 -->
+                <div class="form-group">
+                    <label for="epBasePath">根目录：</label>
+                    <input type="text" id="epBasePath" placeholder="例如：E:/excel_files" value="E:/excel_files"
+                        class="form-control">
+                </div>
+
+                <!-- 匹配列 + 匹配值：同行布局 -->
+                <div class="form-group-row">
+                    <div class="form-group-item">
+                        <label for="epMatchColumn">匹配列：</label>
+                        <input type="text" id="epMatchColumn" placeholder="例如: A" class="form-control">
+                    </div>
+                    <div class="form-group-item">
+                        <label for="epMatchValue">匹配值：</label>
+                        <input type="text" id="epMatchValue" placeholder="选 填" class="form-control">
+                        <div style="font-size: 12px; color: #909399; margin-top: 4px;"></div>
+                    </div>
+                </div>
+
+                <!-- 保留列 + 求和列：同行布局 -->
+                <div class="form-group-row">
+                    <div class="form-group-item">
+                        <label for="epKeepColumns">保留列：</label>
+                        <input type="text" id="epKeepColumns" placeholder="例如：B,C" class="form-control">
+                    </div>
+                    <div class="form-group-item">
+                        <label for="epSumColumn">求和列：</label>
+                        <input type="text" id="epSumColumn" placeholder="例如：D" class="form-control">
+                    </div>
+                </div>
+
+                <!-- 按钮容器（统一样式） -->
+                <div class="btn-container">
+                    <button id="epProcessBtn" class="btn-primary" style="width: 100%;">开始分组汇总Excel数据</button>
+                </div>
+
+                <!-- 结果展示区域 -->
+                <div id="epResult" class="result" style="display: none; margin-top: 16px;">
+                    <div id="epResultContent"></div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- 公共工具脚本（相对路径：static/js/） -->
+    <script src="./js/utils/common.js"></script>
+    <!-- 业务模块脚本 -->
+    <script src="./js/modules/stock.js"></script>
+    <script src="./js/modules/order.js"></script>
+    <script src="./js/modules/shop-order.js"></script>
+    <script src="./js/modules/cycle-sales.js"></script>
+    <!-- 新增：Excel处理模块脚本 -->
+    <script src="./js/modules/excel-process.js"></script>
+    <!-- 新增：Excel填充模块脚本 -->
+    <script src="./js/modules/excel-fill.js"></script>
+    <!-- 入口脚本 -->
+    <script src="./js/main.js"></script>
+</body>
+
+</html>
