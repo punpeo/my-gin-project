@@ -1,15 +1,86 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>智能业务处理中心</title>
+    
+    <!-- 样式文件 -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/style-modules.css">
+    
+    <style>
+        /* 加载状态样式 */
+        .modules-container {
+            position: relative;
+            min-height: 400px;
+        }
+        
+        .loading-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.9);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            backdrop-filter: blur(2px);
+        }
+        
+        .module-switch-indicator {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: var(--primary);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            z-index: 9999;
+            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+            animation: slideInRight 0.3s ease;
+            display: none;
+        }
+        
+        @keyframes slideInRight {
+            from {
+                opacity: 0;
+                transform: translateX(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+        
+        /* 确保所有必要的样式都定义 */
+        :root {
+            --primary: #6366f1;
+            --primary-dark: #4f46e5;
+            --secondary: #10b981;
+            --danger: #ef4444;
+            --success: #10b981;
+            --gray-50: #f8fafc;
+            --gray-100: #f1f5f9;
+            --gray-200: #e2e8f0;
+            --gray-300: #cbd5e1;
+            --gray-400: #94a3b8;
+            --gray-500: #64748b;
+            --gray-600: #475569;
+            --gray-700: #334155;
+            --border-radius: 12px;
+            --border-radius-lg: 16px;
+            --border-radius-xl: 20px;
+            --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.08);
+        }
+    </style>
 </head>
-
 <body>
     <div class="main-container">
         <!-- 左侧导航栏 -->
@@ -21,7 +92,7 @@
                 </h2>
                 <p>一站式数据管理与智能分析平台</p>
             </div>
-
+            
             <ul class="nav-list">
                 <li class="nav-item active" data-target="excel-sales">
                     <a href="#" class="nav-link">
@@ -36,7 +107,7 @@
                         </div>
                     </a>
                 </li>
-
+                
                 <li class="nav-item" data-target="excel-fill">
                     <a href="#" class="nav-link">
                         <div class="nav-icon-wrapper">
@@ -50,7 +121,7 @@
                         </div>
                     </a>
                 </li>
-
+                
                 <li class="nav-item" data-target="stock">
                     <a href="#" class="nav-link">
                         <div class="nav-icon-wrapper">
@@ -64,7 +135,7 @@
                         </div>
                     </a>
                 </li>
-
+                
                 <li class="nav-item" data-target="order-summary">
                     <a href="#" class="nav-link">
                         <div class="nav-icon-wrapper">
@@ -78,7 +149,7 @@
                         </div>
                     </a>
                 </li>
-
+                
                 <li class="nav-item" data-target="shop-order">
                     <a href="#" class="nav-link">
                         <div class="nav-icon-wrapper">
@@ -92,7 +163,7 @@
                         </div>
                     </a>
                 </li>
-
+                
                 <li class="nav-item" data-target="cycle-sales">
                     <a href="#" class="nav-link">
                         <div class="nav-icon-wrapper">
@@ -106,10 +177,9 @@
                         </div>
                     </a>
                 </li>
-
+                
                 <div class="nav-divider"></div>
-
-                <!-- 待开发模块1 -->
+                
                 <li class="nav-item" data-target="dev-module-1">
                     <a href="#" class="nav-link">
                         <div class="nav-icon-wrapper">
@@ -122,8 +192,7 @@
                         </div>
                     </a>
                 </li>
-
-                <!-- 待开发模块2 -->
+                
                 <li class="nav-item" data-target="dev-module-2">
                     <a href="#" class="nav-link">
                         <div class="nav-icon-wrapper">
@@ -137,59 +206,54 @@
                     </a>
                 </li>
             </ul>
-
+            
             <div class="sidebar-footer">
                 <div class="system-status">
                     <div class="status-info">
                         <div class="status-dot"></div>
                         <span class="status-text">系统运行正常</span>
                     </div>
-                    <div class="time-display" id="currentTime">14:31:29</div>
+                    <div class="time-display" id="currentTime">00:00:00</div>
                 </div>
             </div>
         </aside>
 
         <!-- 主内容区域 -->
         <main class="main-content">
+            <div class="module-switch-indicator" id="moduleIndicator">
+                正在切换到: <span id="moduleName"></span>
+            </div>
+            
             <div class="content-header">
                 <h1>智能业务处理中心</h1>
                 <p>一体化数据管理与智能分析平台，赋能您的业务决策与流程优化</p>
             </div>
 
             <!-- 功能模块容器 -->
-            <div id="modules-container">
-                <!-- 模块将通过JavaScript动态加载 -->
+            <div class="modules-container" id="modules-container">
+                <div class="function-panel active">
+                    <div class="dev-panel">
+                        <div class="dev-content">
+                            <i class="fas fa-spinner fa-spin"></i>
+                            <h4>正在初始化系统</h4>
+                            <p>请稍候，正在加载模块...</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="loading-overlay" id="loadingOverlay" style="display: none;">
+                    <div class="module-loading-content">
+                        <i class="fas fa-spinner fa-spin"></i>
+                        <h4>正在加载模块</h4>
+                        <p id="loadingText">请稍候...</p>
+                    </div>
+                </div>
             </div>
         </main>
     </div>
 
-    <script src="js/modules.js"></script>
-
+    <!-- JavaScript文件 -->
     <script src="js/main.js"></script>
-    <script>
-        // 全局快捷键帮助
-        document.addEventListener('keydown', function (e) {
-            // Ctrl + / 显示键盘快捷键
-            if (e.ctrlKey && e.key === '/') {
-                e.preventDefault();
-                const shortcuts = document.getElementById('keyboardShortcuts');
-                shortcuts.style.display = shortcuts.style.display === 'block' ? 'none' : 'block';
-            }
-
-            // 隐藏帮助
-            if (e.key === 'Escape') {
-                document.getElementById('keyboardShortcuts').style.display = 'none';
-            }
-        });
-
-        // 点击外部关闭快捷键提示
-        document.addEventListener('click', function (e) {
-            const shortcuts = document.getElementById('keyboardShortcuts');
-            if (shortcuts.style.display === 'block' && !shortcuts.contains(e.target)) {
-                shortcuts.style.display = 'none';
-            }
-        });
-    </script>
+    <script src="js/modules.js"></script>
 </body>
-
 </html>

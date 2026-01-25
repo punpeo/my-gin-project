@@ -13,22 +13,6 @@
         </div>
     </div>
 </div>
-
-<div class="module-stats">
-    <div class="stat-item">
-        <div class="stat-value">92%</div>
-        <div class="stat-label">匹配准确率</div>
-    </div>
-    <div class="stat-item">
-        <div class="stat-value">1.8s</div>
-        <div class="stat-label">平均处理时间</div>
-    </div>
-    <div class="stat-item">
-        <div class="stat-value">890</div>
-        <div class="stat-label">今日处理量</div>
-    </div>
-</div>
-
 <div class="form-grid">
     <div class="form-group">
         <label class="form-label">
@@ -69,6 +53,18 @@
                 目标表取值列
             </label>
             <input type="text" class="form-control" placeholder="例如：C" value="C">
+        </div>
+    </div>
+
+    <!-- 新增：后端响应结果展示区 -->
+    <div class="response-container" id="responseContainer">
+        <label class="form-label">
+            <i class="fas fa-terminal"></i>
+            执行结果
+        </label>
+        <!-- 初始为空，可通过JS动态填充内容 -->
+        <div class="response-content">
+            <p class="response-placeholder">点击「开始匹配填充」后，执行结果将展示在此处</p>
         </div>
     </div>
     

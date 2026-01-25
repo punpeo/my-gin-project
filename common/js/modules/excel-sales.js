@@ -1,6 +1,8 @@
 /**
  * Excel分组汇总模块 - 专属功能
  * 模块ID: excel-sales
+ * API: POST /api/v1/excel/process
+ * Content-Type: application/json;charset=utf-8
  */
 
 /**
@@ -8,7 +10,7 @@
  * @param {HTMLElement} container - 模块容器
  */
 function init_excel_sales(container) {
-    console.log('Excel分组汇总模块初始化');
+    console.log('Excel分组汇总模块初始化 - API适配版');
     
     // 绑定模块特定事件
     bindModuleEvents(container);
@@ -18,9 +20,6 @@ function init_excel_sales(container) {
     
     // 设置表单验证
     setupFormValidation(container);
-    
-    // 模拟数据加载
-    simulateDataLoading(container);
 }
 
 /**
@@ -30,7 +29,7 @@ function bindModuleEvents(container) {
     if (!container) return;
     
     // 根目录输入框特殊处理
-    const rootDirInput = container.querySelector('input[value="E:/excel_files"]');
+    const rootDirInput = container.querySelector('input[name="base_path"]');
     if (rootDirInput) {
         rootDirInput.addEventListener('change', function() {
             validateRootDirectory(this.value, container);
@@ -38,8 +37,8 @@ function bindModuleEvents(container) {
     }
     
     // 匹配列和求和列的联动验证
-    const matchColumnInput = container.querySelector('input[placeholder*="匹配列"]');
-    const sumColumnInput = container.querySelector('input[placeholder*="求和列"]');
+    const matchColumnInput = container.querySelector('input[name="match_column"]');
+    const sumColumnInput = container.querySelector('input[name="sum_column"]');
     
     if (matchColumnInput && sumColumnInput) {
         const validateColumns = () => {
@@ -58,7 +57,7 @@ function bindModuleEvents(container) {
     }
     
     // 开始分组汇总按钮的特殊处理
-    const startButton = container.querySelector('.btn-primary');
+    const startButton = container.querySelector('.btn-primary.btn-lg');
     if (startButton) {
         startButton.addEventListener('click', function(e) {
             e.preventDefault();
@@ -68,16 +67,19 @@ function bindModuleEvents(container) {
                 return;
             }
             
-            // 显示处理详情
-            showProcessingDetails(container);
+            // 收集表单数据
+            const formData = collectFormData(container);
             
-            // 模拟数据处理
-            simulateExcelProcessing(container);
+            // 显示进度条
+            showProgressBar(container);
+            
+            // 调用API处理
+            processExcelData(container, formData);
         });
     }
     
     // 输出文件名建议
-    const outputInput = container.querySelector('input[placeholder*="输出文件名"]');
+    const outputInput = container.querySelector('input[name="output_file"]');
     if (outputInput) {
         outputInput.addEventListener('focus', function() {
             if (!this.value) {
@@ -88,6 +90,18 @@ function bindModuleEvents(container) {
             }
         });
     }
+    
+    // 绑定重置按钮
+    const resetButton = container.querySelector('#reset-btn');
+    if (resetButton) {
+        resetButton.addEventListener('click', function(e) {
+            e.preventDefault();
+            resetForm(container);
+        });
+    }
+    
+    // 绑定结果按钮
+    bindResultButtons(container);
 }
 
 /**
@@ -105,9 +119,6 @@ function initModuleState(container) {
             this.style.transform = 'translateX(0)';
         });
     }
-    
-    // 更新统计数据显示
-    updateStatsDisplay(container);
 }
 
 /**
@@ -138,16 +149,6 @@ function setupFormValidation(container) {
 function validateInput(input) {
     if (!input.value.trim()) {
         if (input.hasAttribute('required')) {
-            input.classList.add('error');
-            input.style.borderColor = 'var(--danger)';
-            return false;
-        }
-    }
-    
-    // 特定格式验证
-    if (input.placeholder.includes('列')) {
-        const value = input.value.trim();
-        if (value && !/^[A-Z]+(?:,[A-Z]+)*$/.test(value)) {
             input.classList.add('error');
             input.style.borderColor = 'var(--danger)';
             return false;
@@ -237,134 +238,383 @@ function clearValidationError(container) {
 }
 
 /**
- * 显示处理详情
+ * 收集表单数据
  */
-function showProcessingDetails(container) {
-    const detailsDiv = document.createElement('div');
-    detailsDiv.className = 'processing-details';
-    detailsDiv.innerHTML = `
-        <div style="margin-top: 20px; padding: 15px; background: linear-gradient(135deg, var(--gray-50), var(--gray-100)); border-radius: var(--border-radius);">
-            <h5 style="color: var(--primary); margin-bottom: 10px; display: flex; align-items: center; gap: 8px;">
-                <i class="fas fa-info-circle"></i>
-                处理详情
-            </h5>
-            <div style="font-size: 0.85rem; color: var(--gray-600);">
-                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
-                    <i class="fas fa-spinner fa-spin"></i>
-                    <span>正在读取Excel文件...</span>
-                </div>
-                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
-                    <i class="far fa-clock"></i>
-                    <span>数据分组处理中...</span>
-                </div>
-                <div style="display: flex; align-items: center; gap: 10px;">
-                    <i class="fas fa-calculator"></i>
-                    <span>汇总计算进行中...</span>
-                </div>
-            </div>
-        </div>
-    `;
+function collectFormData(container) {
+    return {
+        base_path: container.querySelector('input[name="base_path"]').value.trim(),
+        match_column: container.querySelector('input[name="match_column"]').value.trim(),
+        match_value: container.querySelector('input[name="match_value"]').value.trim() || undefined,
+        keep_columns: container.querySelector('input[name="keep_columns"]').value.trim().split(',').map(s => s.trim()),
+        sum_column: container.querySelector('input[name="sum_column"]').value.trim(),
+        output_file: container.querySelector('input[name="output_file"]').value.trim() || undefined
+    };
+}
+
+/**
+ * 显示进度条
+ */
+function showProgressBar(container) {
+    const progressContainer = container.querySelector('#progress-container');
+    const formGrid = container.querySelector('.form-grid');
     
+    if (progressContainer && formGrid) {
+        formGrid.style.opacity = '0.5';
+        formGrid.style.pointerEvents = 'none';
+        progressContainer.style.display = 'block';
+    }
+    
+    // 重置进度条
+    const progressFill = container.querySelector('#progress-fill');
+    const progressPercentage = container.querySelector('.progress-percentage');
+    if (progressFill && progressPercentage) {
+        progressFill.style.width = '0%';
+        progressPercentage.textContent = '0%';
+    }
+    
+    resetProgressSteps(container);
+    
+    // 开始连接服务器步骤
+    activateProgressStep(container, 1, 20);
+}
+
+/**
+ * 重置进度步骤
+ */
+function resetProgressSteps(container) {
+    const steps = container.querySelectorAll('.progress-step');
+    steps.forEach(step => {
+        step.classList.remove('active');
+        const icon = step.querySelector('i');
+        icon.className = icon.className.replace(/fa-(spinner|check|times)/, '');
+    });
+}
+
+/**
+ * 激活进度步骤
+ */
+function activateProgressStep(container, stepNumber, progress) {
+    const step = container.querySelector(`#step${stepNumber}`);
+    if (step) {
+        step.classList.add('active');
+        const icon = step.querySelector('i');
+        icon.className = icon.className.replace(/fa-[^ ]*/, '') + ' fa-spinner fa-spin';
+    }
+    
+    // 更新进度条
+    const progressFill = container.querySelector('#progress-fill');
+    const progressPercentage = container.querySelector('.progress-percentage');
+    if (progressFill && progressPercentage) {
+        progressFill.style.width = `${progress}%`;
+        progressPercentage.textContent = `${progress}%`;
+    }
+}
+
+/**
+ * 完成进度步骤
+ */
+function completeProgressStep(container, stepNumber) {
+    const step = container.querySelector(`#step${stepNumber}`);
+    if (step) {
+        const icon = step.querySelector('i');
+        icon.className = icon.className.replace('fa-spinner fa-spin', 'fa-check');
+    }
+}
+
+/**
+ * 处理Excel数据
+ */
+async function processExcelData(container, formData) {
+    const startTime = Date.now();
+    
+    try {
+        // 激活步骤2
+        setTimeout(() => {
+            activateProgressStep(container, 2, 40);
+        }, 500);
+        
+        // 调用API
+        const response = await fetch('/api/v1/excel/process', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json;charset=utf-8',
+            },
+            body: JSON.stringify(formData)
+        });
+        
+        const endTime = Date.now();
+        const processingTime = ((endTime - startTime) / 1000).toFixed(1);
+        
+        if (!response.ok) {
+            // 处理错误响应
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.msg || `HTTP error! status: ${response.status}`);
+        }
+        
+        // 检查响应类型
+        const contentType = response.headers.get('content-type');
+        
+        if (contentType && contentType.includes('application/json')) {
+            // JSON响应（错误情况）
+            const errorData = await response.json();
+            throw new Error(errorData.msg || '处理失败');
+        } else if (contentType && contentType.includes('spreadsheet')) {
+            // Excel文件流响应（成功）
+            // 更新进度
+            activateProgressStep(container, 3, 60);
+            activateProgressStep(container, 4, 80);
+            
+            setTimeout(() => {
+                completeProgressStep(container, 4);
+                activateProgressStep(container, 5, 100);
+                
+                setTimeout(() => {
+                    completeProgressStep(container, 5);
+                    handleSuccessResponse(container, response, formData, processingTime);
+                }, 500);
+            }, 1000);
+        } else {
+            throw new Error('未知的响应类型');
+        }
+        
+    } catch (error) {
+        handleErrorResponse(container, error);
+    }
+}
+
+/**
+ * 处理成功响应
+ */
+async function handleSuccessResponse(container, response, formData, processingTime) {
+    // 获取文件名
+    const contentDisposition = response.headers.get('content-disposition');
+    let filename = 'excel汇总结果.xlsx';
+    
+    if (contentDisposition) {
+        const filenameMatch = contentDisposition.match(/filename="(.+)"/);
+        if (filenameMatch) {
+            filename = filenameMatch[1];
+        }
+    }
+    
+    // 创建blob
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    
+    // 显示成功结果
+    showSuccessResult(container, filename, processingTime, url, blob);
+    
+    // 清理进度条
+    const progressContainer = container.querySelector('#progress-container');
+    if (progressContainer) {
+        progressContainer.style.display = 'none';
+    }
+}
+
+/**
+ * 显示成功结果
+ */
+function showSuccessResult(container, filename, processingTime, downloadUrl, blob) {
+    const resultContainer = container.querySelector('#result-container');
+    const formGrid = container.querySelector('.form-grid');
+    
+    if (resultContainer && formGrid) {
+        // 更新结果信息
+        const filenameElement = container.querySelector('#result-filename');
+        const timeElement = container.querySelector('#result-time');
+        
+        if (filenameElement) filenameElement.textContent = filename;
+        if (timeElement) timeElement.textContent = `${processingTime}s`;
+        
+        // 存储下载URL和blob
+        resultContainer.setAttribute('data-download-url', downloadUrl);
+        resultContainer.setAttribute('data-blob', JSON.stringify({
+            type: blob.type,
+            size: blob.size
+        }));
+        
+        // 显示结果容器
+        resultContainer.style.display = 'block';
+        formGrid.style.opacity = '1';
+        formGrid.style.pointerEvents = 'auto';
+        
+        // 滚动到结果区域
+        resultContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+}
+
+/**
+ * 处理错误响应
+ */
+function handleErrorResponse(container, error) {
+    const errorContainer = container.querySelector('#error-container');
+    const formGrid = container.querySelector('.form-grid');
+    
+    if (errorContainer && formGrid) {
+        // 解析错误信息
+        const errorMatch = error.message.match(/"code":(\d+),"msg":"([^"]+)"/);
+        const errorCode = errorMatch ? errorMatch[1] : '500';
+        const errorMessage = errorMatch ? errorMatch[2] : error.message;
+        
+        // 更新错误信息
+        const codeElement = container.querySelector('#error-code');
+        const messageElement = container.querySelector('#error-message');
+        
+        if (codeElement) codeElement.textContent = errorCode;
+        if (messageElement) messageElement.textContent = errorMessage;
+        
+        // 显示错误容器
+        errorContainer.style.display = 'block';
+        formGrid.style.opacity = '1';
+        formGrid.style.pointerEvents = 'auto';
+        
+        // 隐藏进度条
+        const progressContainer = container.querySelector('#progress-container');
+        if (progressContainer) {
+            progressContainer.style.display = 'none';
+        }
+        
+        // 滚动到错误区域
+        errorContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+}
+
+/**
+ * 绑定结果按钮
+ */
+function bindResultButtons(container) {
+    // 下载按钮
+    const downloadBtn = container.querySelector('#download-btn');
+    if (downloadBtn) {
+        downloadBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            downloadResultFile(container);
+        });
+    }
+    
+    // 重试按钮
+    const retryBtn = container.querySelector('#retry-btn');
+    if (retryBtn) {
+        retryBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            handleRetry(container);
+        });
+    }
+    
+    // 错误重试按钮
+    const retryErrorBtn = container.querySelector('#retry-error-btn');
+    if (retryErrorBtn) {
+        retryErrorBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            handleRetry(container);
+        });
+    }
+    
+    // 查看请求数据按钮
+    const viewRequestBtn = container.querySelector('#view-request-btn');
+    if (viewRequestBtn) {
+        viewRequestBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            showRequestPreview(container);
+        });
+    }
+}
+
+/**
+ * 下载结果文件
+ */
+function downloadResultFile(container) {
+    const resultContainer = container.querySelector('#result-container');
+    const downloadUrl = resultContainer?.getAttribute('data-download-url');
+    
+    if (downloadUrl) {
+        const a = document.createElement('a');
+        a.href = downloadUrl;
+        a.download = container.querySelector('#result-filename').textContent;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        
+        // 清理URL
+        window.URL.revokeObjectURL(downloadUrl);
+    }
+}
+
+/**
+ * 处理重试
+ */
+function handleRetry(container) {
+    // 重置表单状态
     const formGrid = container.querySelector('.form-grid');
     if (formGrid) {
-        formGrid.appendChild(detailsDiv);
+        formGrid.style.opacity = '1';
+        formGrid.style.pointerEvents = 'auto';
+    }
+    
+    // 隐藏所有结果容器
+    const resultContainer = container.querySelector('#result-container');
+    const errorContainer = container.querySelector('#error-container');
+    const requestPreview = container.querySelector('.request-preview');
+    
+    if (resultContainer) resultContainer.style.display = 'none';
+    if (errorContainer) errorContainer.style.display = 'none';
+    if (requestPreview) requestPreview.style.display = 'none';
+    
+    // 滚动到顶部
+    const formGridElement = container.querySelector('.form-grid');
+    if (formGridElement) {
+        formGridElement.scrollIntoView({ behavior: 'smooth' });
     }
 }
 
 /**
- * 模拟Excel处理
+ * 显示请求预览
  */
-function simulateExcelProcessing(container) {
-    const steps = [
-        { text: '读取源文件', duration: 800 },
-        { text: '数据清洗', duration: 1000 },
-        { text: '按匹配列分组', duration: 1200 },
-        { text: '计算汇总值', duration: 900 },
-        { text: '生成结果文件', duration: 1100 },
-        { text: '保存输出文件', duration: 700 }
-    ];
+function showRequestPreview(container) {
+    const formData = collectFormData(container);
+    const preview = container.querySelector('.request-preview');
+    const codeElement = container.querySelector('#request-data');
     
-    const detailsDiv = container.querySelector('.processing-details div');
-    if (!detailsDiv) return;
-    
-    let currentStep = 0;
-    
-    const processStep = () => {
-        if (currentStep >= steps.length) {
-            // 处理完成
-            detailsDiv.innerHTML = `
-                <h5 style="color: var(--success); margin-bottom: 10px; display: flex; align-items: center; gap: 8px;">
-                    <i class="fas fa-check-circle"></i>
-                    处理完成！
-                </h5>
-                <div style="font-size: 0.85rem; color: var(--gray-600);">
-                    <p>✓ 所有数据处理完成</p>
-                    <p>✓ 结果文件已保存</p>
-                    <p>✓ 共处理了 1,245 条记录</p>
-                    <button class="btn btn-secondary" style="margin-top: 10px; width: auto;" onclick="location.reload()">
-                        <i class="fas fa-redo"></i>
-                        处理新文件
-                    </button>
-                </div>
-            `;
-            return;
-        }
-        
-        const step = steps[currentStep];
-        const stepDiv = document.createElement('div');
-        stepDiv.style.cssText = 'display: flex; align-items: center; gap: 10px; margin-bottom: 8px;';
-        stepDiv.innerHTML = `
-            <i class="fas fa-spinner fa-spin"></i>
-            <span>${step.text}...</span>
-        `;
-        
-        detailsDiv.querySelector('div').appendChild(stepDiv);
-        
-        setTimeout(() => {
-            stepDiv.querySelector('i').className = 'fas fa-check-circle';
-            stepDiv.querySelector('i').style.color = 'var(--success)';
-            stepDiv.querySelector('i').style.animation = 'none';
-            currentStep++;
-            processStep();
-        }, step.duration);
-    };
-    
-    processStep();
-}
-
-/**
- * 更新统计数据显示
- */
-function updateStatsDisplay(container) {
-    const stats = container.querySelectorAll('.stat-value');
-    if (stats.length >= 3) {
-        // 随机更新第一个统计值
-        setTimeout(() => {
-            const value = parseInt(stats[0].textContent.replace('%', ''));
-            if (!isNaN(value)) {
-                const newValue = Math.min(100, value + Math.floor(Math.random() * 5));
-                stats[0].textContent = newValue + '%';
-                stats[0].style.transform = 'scale(1.1)';
-                setTimeout(() => {
-                    stats[0].style.transform = 'scale(1)';
-                }, 300);
-            }
-        }, 2000);
+    if (preview && codeElement) {
+        codeElement.textContent = JSON.stringify(formData, null, 2);
+        preview.style.display = 'block';
     }
 }
 
 /**
- * 模拟数据加载
+ * 重置表单
  */
-function simulateDataLoading(container) {
-    // 模拟加载完成后的小动画
-    setTimeout(() => {
-        const panelIcon = container.querySelector('.panel-icon');
-        if (panelIcon) {
-            panelIcon.style.transform = 'scale(1.05)';
-            setTimeout(() => {
-                panelIcon.style.transform = 'scale(1)';
-            }, 300);
-        }
-    }, 500);
+function resetForm(container) {
+    // 重置表单值
+    const basePathInput = container.querySelector('input[name="base_path"]');
+    const matchColumnInput = container.querySelector('input[name="match_column"]');
+    const matchValueInput = container.querySelector('input[name="match_value"]');
+    const keepColumnsInput = container.querySelector('input[name="keep_columns"]');
+    const sumColumnInput = container.querySelector('input[name="sum_column"]');
+    const outputFileInput = container.querySelector('input[name="output_file"]');
+    
+    if (basePathInput) basePathInput.value = 'E:/excel_files/sales';
+    if (matchColumnInput) matchColumnInput.value = 'A';
+    if (matchValueInput) matchValueInput.value = '';
+    if (keepColumnsInput) keepColumnsInput.value = 'B,C';
+    if (sumColumnInput) sumColumnInput.value = 'D';
+    if (outputFileInput) outputFileInput.value = '';
+    
+    // 清除错误状态
+    const errors = container.querySelectorAll('.field-error');
+    errors.forEach(error => error.remove());
+    
+    const inputs = container.querySelectorAll('.form-control');
+    inputs.forEach(input => input.style.borderColor = '');
+    
+    // 隐藏所有容器
+    const resultContainer = container.querySelector('#result-container');
+    const errorContainer = container.querySelector('#error-container');
+    const progressContainer = container.querySelector('#progress-container');
+    const requestPreview = container.querySelector('.request-preview');
+    
+    if (resultContainer) resultContainer.style.display = 'none';
+    if (errorContainer) errorContainer.style.display = 'none';
+    if (progressContainer) progressContainer.style.display = 'none';
+    if (requestPreview) requestPreview.style.display = 'none';
 }

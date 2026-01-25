@@ -72,12 +72,18 @@ const ModulesManager = (function() {
             document.addEventListener('click', function(e) {
                 // 处理按钮点击
                 if (e.target.closest('.btn-primary, .btn-secondary, .btn-danger')) {
-                    handleButtonClick(e.target.closest('.btn-primary, .btn-secondary, .btn-danger'));
+                    const button = e.target.closest('.btn-primary, .btn-secondary, .btn-danger');
+                    if (button) {
+                        handleButtonClick(button);
+                    }
                 }
                 
                 // 处理文件上传区域点击
                 if (e.target.closest('.file-upload-area')) {
-                    handleFileUploadClick(e.target.closest('.file-upload-area'));
+                    const uploadArea = e.target.closest('.file-upload-area');
+                    if (uploadArea) {
+                        handleFileUploadClick(uploadArea);
+                    }
                 }
             });
             
@@ -85,14 +91,20 @@ const ModulesManager = (function() {
             document.addEventListener('dragover', function(e) {
                 if (e.target.closest('.file-upload-area')) {
                     e.preventDefault();
-                    e.target.closest('.file-upload-area').style.borderColor = '#10b981';
+                    const uploadArea = e.target.closest('.file-upload-area');
+                    if (uploadArea) {
+                        uploadArea.style.borderColor = '#10b981';
+                    }
                 }
             });
             
             document.addEventListener('drop', function(e) {
                 if (e.target.closest('.file-upload-area')) {
                     e.preventDefault();
-                    handleFileDrop(e.target.closest('.file-upload-area'), e.dataTransfer.files);
+                    const uploadArea = e.target.closest('.file-upload-area');
+                    if (uploadArea && e.dataTransfer) {
+                        handleFileDrop(uploadArea, e.dataTransfer.files);
+                    }
                 }
             });
         },
@@ -156,7 +168,11 @@ const ModulesManager = (function() {
          */
         showLoadingState: function(moduleId) {
             const modulesContainer = document.getElementById('modules-container');
-            if (!modulesContainer) return;
+            if (!modulesContainer) {
+                console.error('模块容器未找到');
+                isHoverEnabled = true;
+                return;
+            }
             
             const moduleConfig = modulesConfig[moduleId];
             modulesContainer.innerHTML = `
@@ -259,7 +275,9 @@ const ModulesManager = (function() {
                 console.warn(`模块 ${moduleId} 脚本加载失败:`, error);
             };
             
-            document.head.appendChild(script);
+            if (document.head) {
+                document.head.appendChild(script);
+            }
         },
         
         /**
@@ -271,11 +289,17 @@ const ModulesManager = (function() {
             // 表单输入框聚焦效果
             container.querySelectorAll('.form-control').forEach(input => {
                 input.addEventListener('focus', function() {
-                    this.parentElement.style.transform = 'translateY(-1px)';
+                    const parent = this.parentElement;
+                    if (parent) {
+                        parent.style.transform = 'translateY(-1px)';
+                    }
                 });
                 
                 input.addEventListener('blur', function() {
-                    this.parentElement.style.transform = 'translateY(0)';
+                    const parent = this.parentElement;
+                    if (parent) {
+                        parent.style.transform = 'translateY(0)';
+                    }
                 });
             });
             
