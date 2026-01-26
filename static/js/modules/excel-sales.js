@@ -1,14 +1,14 @@
 /**
- * 产品周期销量统计模块
- * 功能：统计指定周期内的产品销量
- * 初始化函数：initcycle_sales
+ * Excel分组汇总模块
+ * 功能：批量处理Excel文件，按匹配列分组并求和
+ * 初始化函数：initexcel_sales
  */
 
-const CycleSalesModule = {
+const ExcelSalesModule = {
     // 模块配置
     config: {
         api: {
-            statistic: '/api/v1/cycle-sales/statistic'
+            process: '/api/v1/excel/process'
         }
     },
     
@@ -25,7 +25,7 @@ const CycleSalesModule = {
      * @param {HTMLElement} container - 模块容器
      */
     init: function(container) {
-        console.log('初始化产品周期销量统计模块');
+        console.log('初始化Excel分组汇总模块');
         
         // 缓存DOM元素
         this.cacheElements(container);
@@ -38,7 +38,7 @@ const CycleSalesModule = {
         
         // 注册到模块管理器
         if (typeof ModulesManager !== 'undefined') {
-            ModulesManager.registerModule('cycle-sales', this);
+            ModulesManager.registerModule('excel-sales', this);
         }
     },
     
@@ -49,23 +49,19 @@ const CycleSalesModule = {
         this.elements = {
             container: container,
             // 表单元素
-            basePathInput: container.querySelector('#cycle-sales-base-path'),
-            baseFileNameInput: container.querySelector('#cycle-sales-base-filename'),
-            startColumnSelect: container.querySelector('#cycle-sales-start-column'),
-            endColumnSelect: container.querySelector('#cycle-sales-end-column'),
-            
-            // 统计信息区域
-            cycleTypeValue: container.querySelector('#cycle-sales-cycle-type'),
-            cycleDaysValue: container.querySelector('#cycle-sales-cycle-days'),
-            productCountValue: container.querySelector('#cycle-sales-product-count'),
+            basePathInput: container.querySelector('#excel-base-path'),
+            matchColumnInput: container.querySelector('#excel-match-column'),
+            matchValueInput: container.querySelector('#excel-match-value'),
+            keepColumnsInput: container.querySelector('#excel-keep-columns'),
+            sumColumnInput: container.querySelector('#excel-sum-column'),
             
             // 按钮
-            statisticBtn: container.querySelector('#cycle-sales-statistic-btn'),
+            processBtn: container.querySelector('#excel-process-btn'),
             
             // 响应容器
-            responseContainer: container.querySelector('#cycle-sales-response-container'),
-            responseContent: container.querySelector('#cycle-sales-response-content'),
-            responsePlaceholder: container.querySelector('#cycle-sales-response-placeholder')
+            responseContainer: container.querySelector('#excel-response-container'),
+            responseContent: container.querySelector('#excel-response-content'),
+            responsePlaceholder: container.querySelector('#excel-response-placeholder')
         };
     },
     
@@ -75,9 +71,9 @@ const CycleSalesModule = {
     bindEvents: function() {
         const el = this.elements;
         
-        // 统计按钮点击
-        if (el.statisticBtn) {
-            el.statisticBtn.addEventListener('click', (e) => this.handleStatistic(e));
+        // 处理按钮点击
+        if (el.processBtn) {
+            el.processBtn.addEventListener('click', (e) => this.handleProcess(e));
         }
         
         // 输入框验证
@@ -85,8 +81,16 @@ const CycleSalesModule = {
             el.basePathInput.addEventListener('input', () => this.validateInputs());
         }
         
-        if (el.baseFileNameInput) {
-            el.baseFileNameInput.addEventListener('input', () => this.validateInputs());
+        if (el.matchColumnInput) {
+            el.matchColumnInput.addEventListener('input', () => this.validateInputs());
+        }
+        
+        if (el.keepColumnsInput) {
+            el.keepColumnsInput.addEventListener('input', () => this.validateInputs());
+        }
+        
+        if (el.sumColumnInput) {
+            el.sumColumnInput.addEventListener('input', () => this.validateInputs());
         }
     },
     
@@ -102,9 +106,9 @@ const CycleSalesModule = {
     },
     
     /**
-     * 处理统计请求
+     * 处理Excel处理请求
      */
-    handleStatistic: async function(e) {
+    handleProcess: async function(e) {
         e.preventDefault();
         
         if (this.data.processing) return;
@@ -122,17 +126,17 @@ const CycleSalesModule = {
             const requestData = this.getRequestData();
             
             // 显示处理中状态
-            this.showProcessing('正在统计产品周期销量...');
+            this.showProcessing('正在处理Excel文件，请稍候...');
             
             // 调用API
-            const response = await this.callStatisticAPI(requestData);
+            const response = await this.callProcessAPI(requestData);
             
             // 处理响应
-            await this.handleStatisticResponse(response);
+            await this.handleProcessResponse(response);
             
         } catch (error) {
-            console.error('统计失败:', error);
-            this.showError(`统计失败: ${error.message}`);
+            console.error('处理失败:', error);
+            this.showError(`处理失败: ${error.message}`);
         } finally {
             this.setProcessing(false);
         }
@@ -144,22 +148,27 @@ const CycleSalesModule = {
     getRequestData: function() {
         const el = this.elements;
         
+        // 解析保留列为数组
+        const keepColumnsStr = el.keepColumnsInput?.value.trim() || '';
+        const keepColumns = keepColumnsStr.split(',').map(col => col.trim()).filter(col => col);
+        
         return {
             base_path: el.basePathInput?.value.trim() || '',
-            base_file_name: el.baseFileNameInput?.value.trim() || 'kucun.xlsx',
-            start_column: el.startColumnSelect?.value || 'C',
-            end_column: el.endColumnSelect?.value || 'D'
+            match_column: el.matchColumnInput?.value.trim() || '',
+            match_value: el.matchValueInput?.value.trim() || '',
+            keep_columns: keepColumns,
+            sum_column: el.sumColumnInput?.value.trim() || ''
         };
     },
     
     /**
-     * 调用统计API
+     * 调用处理API
      */
-    callStatisticAPI: async function(requestData) {
-        this.showButtonLoading(this.elements.statisticBtn, '正在统计...');
+    callProcessAPI: async function(requestData) {
+        this.showButtonLoading(this.elements.processBtn, '正在处理...');
         
         try {
-            const response = await fetch(this.config.api.statistic, {
+            const response = await fetch(this.config.api.process, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -176,14 +185,14 @@ const CycleSalesModule = {
         } catch (error) {
             throw new Error(`API调用失败: ${error.message}`);
         } finally {
-            this.hideButtonLoading(this.elements.statisticBtn, '<i class="fas fa-chart-pie"></i> 执行周期销量统计');
+            this.hideButtonLoading(this.elements.processBtn, '<i class="fas fa-cogs"></i> 开始分组汇总');
         }
     },
     
     /**
-     * 处理统计响应
+     * 处理响应
      */
-    handleStatisticResponse: async function(response) {
+    handleProcessResponse: async function(response) {
         const contentType = response.headers.get('content-type');
         
         // 检查是否为错误响应
@@ -194,112 +203,14 @@ const CycleSalesModule = {
         
         // 检查是否为Excel文件
         if (contentType && contentType.includes('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')) {
-            // 从响应头获取统计信息
-            this.updateStatsFromHeaders(response.headers);
-            
             // 处理Excel文件下载
             const filename = await this.handleExcelFileDownload(response);
             
             // 显示成功消息
-            this.showSuccess(`统计完成，结果已下载: ${filename}`);
+            this.showSuccess(`处理完成，结果文件已开始下载: ${filename}`);
         } else {
             throw new Error('未知的响应类型');
         }
-    },
-    
-    /**
-     * 从响应头更新统计信息
-     */
-    updateStatsFromHeaders: function(headers) {
-        const el = this.elements;
-        
-        // 获取产品数
-        const productCount = headers.get('X-Product-Count');
-        if (productCount && el.productCountValue) {
-            el.productCountValue.textContent = productCount;
-            
-            // 添加动画效果
-            this.animateValue(el.productCountValue, productCount);
-        }
-        
-        // 获取周期天数
-        const cycleDays = headers.get('X-Cycle-Days');
-        if (cycleDays && el.cycleDaysValue) {
-            el.cycleDaysValue.textContent = cycleDays;
-            
-            // 根据周期天数更新周期类型
-            this.updateCycleType(parseInt(cycleDays));
-            
-            // 添加动画效果
-            this.animateValue(el.cycleDaysValue, cycleDays);
-        }
-        
-        // 添加卡片动画效果
-        this.addStatsAnimation();
-    },
-    
-    /**
-     * 数字动画效果
-     */
-    animateValue: function(element, targetValue) {
-        if (!element) return;
-        
-        const currentValue = parseInt(element.textContent) || 0;
-        const target = parseInt(targetValue) || 0;
-        
-        if (currentValue === target) return;
-        
-        // 简单的数值变化动画
-        element.classList.add('counting');
-        element.textContent = target;
-        
-        // 动画结束后移除类
-        setTimeout(() => {
-            element.classList.remove('counting');
-        }, 300);
-    },
-    
-    /**
-     * 添加统计区域动画效果
-     */
-    addStatsAnimation: function() {
-        const el = this.elements;
-        const statItems = document.querySelectorAll('.stat-item');
-        
-        if (statItems.length > 0) {
-            statItems.forEach(item => {
-                item.classList.add('updated');
-                setTimeout(() => {
-                    item.classList.remove('updated');
-                }, 1000);
-            });
-        }
-    },
-    
-    /**
-     * 更新周期类型
-     */
-    updateCycleType: function(days) {
-        const el = this.elements;
-        if (!el.cycleTypeValue) return;
-        
-        if (isNaN(days)) {
-            el.cycleTypeValue.textContent = '周/月/季';
-            return;
-        }
-        
-        if (days === 7) {
-            el.cycleTypeValue.textContent = '周';
-        } else if (days === 30 || days === 31) {
-            el.cycleTypeValue.textContent = '月';
-        } else if (days === 90 || days === 91 || days === 92) {
-            el.cycleTypeValue.textContent = '季';
-        } else {
-            el.cycleTypeValue.textContent = `${days}天`;
-        }
-        
-        // 添加动画效果
-        this.animateValue(el.cycleTypeValue, days);
     },
     
     /**
@@ -308,7 +219,7 @@ const CycleSalesModule = {
     handleExcelFileDownload: async function(response) {
         // 获取文件名
         const contentDisposition = response.headers.get('content-disposition');
-        let filename = '销量统计.xlsx';
+        let filename = '汇总表.xlsx';
         
         if (contentDisposition) {
             const filenameMatch = contentDisposition.match(/filename="(.+)"/);
@@ -340,18 +251,34 @@ const CycleSalesModule = {
         
         // 验证文件根目录
         if (el.basePathInput && !el.basePathInput.value.trim()) {
-            this.markInvalid(el.basePathInput, '请输入文件根目录');
+            this.markInvalid(el.basePathInput, '请输入Excel文件根目录');
             isValid = false;
         } else {
             this.markValid(el.basePathInput);
         }
         
-        // 验证基准文件名
-        if (el.baseFileNameInput && !el.baseFileNameInput.value.trim()) {
-            this.markInvalid(el.baseFileNameInput, '请输入基准文件名');
+        // 验证匹配列
+        if (el.matchColumnInput && !el.matchColumnInput.value.trim()) {
+            this.markInvalid(el.matchColumnInput, '请输入匹配列');
             isValid = false;
         } else {
-            this.markValid(el.baseFileNameInput);
+            this.markValid(el.matchColumnInput);
+        }
+        
+        // 验证保留列
+        if (el.keepColumnsInput && !el.keepColumnsInput.value.trim()) {
+            this.markInvalid(el.keepColumnsInput, '请输入保留列');
+            isValid = false;
+        } else {
+            this.markValid(el.keepColumnsInput);
+        }
+        
+        // 验证求和列
+        if (el.sumColumnInput && !el.sumColumnInput.value.trim()) {
+            this.markInvalid(el.sumColumnInput, '请输入求和列');
+            isValid = false;
+        } else {
+            this.markValid(el.sumColumnInput);
         }
         
         return isValid;
@@ -450,7 +377,7 @@ const CycleSalesModule = {
                 <div class="message-text">
                     <h5>处理失败</h5>
                     <p>${message}</p>
-                    <button class="btn btn-sm btn-outline-primary mt-2" onclick="window.CycleSalesModule.retry()">
+                    <button class="btn btn-sm btn-outline-primary mt-2" onclick="window.ExcelSalesModule.retry()">
                         <i class="fas fa-redo"></i> 重试
                     </button>
                 </div>
@@ -494,7 +421,7 @@ const CycleSalesModule = {
         const el = this.elements;
         if (el.responseContent) {
             el.responseContent.innerHTML = `
-                <p class="response-placeholder">点击「执行周期销量统计」后，执行结果将展示在此处</p>
+                <p class="response-placeholder">点击「开始分组汇总」后，执行结果将展示在此处</p>
             `;
         }
     },
@@ -512,8 +439,8 @@ const CycleSalesModule = {
      */
     updateUIState: function() {
         const el = this.elements;
-        if (el.statisticBtn) {
-            el.statisticBtn.disabled = this.data.processing;
+        if (el.processBtn) {
+            el.processBtn.disabled = this.data.processing;
         }
     },
     
@@ -524,50 +451,20 @@ const CycleSalesModule = {
         const el = this.elements;
         
         // 重置输入框
-        if (el.basePathInput) el.basePathInput.value = 'E:\\kucun';
-        if (el.baseFileNameInput) el.baseFileNameInput.value = 'kucun.xlsx';
-        
-        // 重置统计信息
-        if (el.cycleTypeValue) el.cycleTypeValue.textContent = '周/月/季';
-        if (el.cycleDaysValue) el.cycleDaysValue.textContent = '5';
-        if (el.productCountValue) el.productCountValue.textContent = '256';
+        if (el.basePathInput) el.basePathInput.value = 'E:/excel_files';
+        if (el.matchColumnInput) el.matchColumnInput.value = 'A';
+        if (el.matchValueInput) el.matchValueInput.value = '';
+        if (el.keepColumnsInput) el.keepColumnsInput.value = 'B,C';
+        if (el.sumColumnInput) el.sumColumnInput.value = 'D';
         
         // 重置响应容器
         if (el.responseContent) {
             el.responseContent.innerHTML = `
-                <p class="response-placeholder">点击「执行周期销量统计」后，执行结果将展示在此处</p>
+                <p class="response-placeholder">点击「开始分组汇总」后，执行结果将展示在此处</p>
             `;
         }
         
         this.showInfo('模块已重置');
-    },
-    
-    /**
-     * 显示信息消息
-     */
-    showInfo: function(message) {
-        const el = this.elements;
-        if (!el.responseContainer || !el.responseContent) return;
-        
-        el.responseContainer.classList.remove('d-none');
-        el.responseContent.innerHTML = `
-            <div class="info-message">
-                <i class="fas fa-info-circle text-info"></i>
-                <div class="message-text">
-                    <h5>提示</h5>
-                    <p>${message}</p>
-                </div>
-            </div>
-        `;
-        
-        // 3秒后隐藏
-        setTimeout(() => {
-            if (el.responseContent) {
-                el.responseContent.innerHTML = `
-                    <p class="response-placeholder">点击「执行周期销量统计」后，执行结果将展示在此处</p>
-                `;
-            }
-        }, 3000);
     },
     
     /**
@@ -576,18 +473,18 @@ const CycleSalesModule = {
     destroy: function() {
         // 清理事件监听器
         const el = this.elements;
-        if (el.statisticBtn) {
-            el.statisticBtn.removeEventListener('click', this.handleStatistic);
+        if (el.processBtn) {
+            el.processBtn.removeEventListener('click', this.handleProcess);
         }
         
-        console.log('产品周期销量统计模块已销毁');
+        console.log('Excel分组汇总模块已销毁');
     }
 };
 
 // 全局初始化函数
-function initcycle_sales(container) {
-    CycleSalesModule.init(container);
+function initexcel_sales(container) {
+    ExcelSalesModule.init(container);
 }
 
 // 确保模块在全局可用
-window.CycleSalesModule = CycleSalesModule;
+window.ExcelSalesModule = ExcelSalesModule;

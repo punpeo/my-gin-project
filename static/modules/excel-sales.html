@@ -1,0 +1,59 @@
+<div class="form-grid">
+    <div class="form-group">
+        <label class="form-label">
+            <i class="fas fa-folder-open"></i>
+            根目录
+        </label>
+        <input type="text" class="form-control" value="E:/excel_files" id="excel-base-path" placeholder="请输入Excel文件根目录">
+    </div>
+    
+    <div class="form-row">
+        <div class="form-group">
+            <label class="form-label">
+                <i class="fas fa-filter"></i>
+                匹配列
+            </label>
+            <input type="text" class="form-control" placeholder="例如：A 或 产品ID" value="A" id="excel-match-column">
+        </div>
+        <div class="form-group">
+            <label class="form-label">
+                <i class="fas fa-equals"></i>
+                匹配值（选填）
+            </label>
+            <input type="text" class="form-control" placeholder="例如：P001" id="excel-match-value">
+        </div>
+    </div>
+    
+    <div class="form-row">
+        <div class="form-group">
+            <label class="form-label">
+                <i class="fas fa-bookmark"></i>
+                保留列
+            </label>
+            <input type="text" class="form-control" placeholder="例如：B,C 或 产品ID,产品名称" value="B,C" id="excel-keep-columns">
+        </div>
+        <div class="form-group">
+            <label class="form-label">
+                <i class="fas fa-calculator"></i>
+                求和列
+            </label>
+            <input type="text" class="form-control" placeholder="例如：D 或 销量" value="D" id="excel-sum-column">
+        </div>
+    </div>
+    
+    <!-- 新增：后端响应结果展示区 -->
+    <div class="response-container" id="excel-response-container">
+        <label class="form-label">
+            <i class="fas fa-terminal"></i>
+            执行结果
+        </label>
+        <div class="response-content" id="excel-response-content">
+            <p class="response-placeholder" id="excel-response-placeholder">点击「开始分组汇总」后，执行结果将展示在此处</p>
+        </div>
+    </div>
+    
+    <button class="btn btn-primary" id="excel-process-btn">
+        <i class="fas fa-cogs"></i>
+        开始分组汇总
+    </button>
+</div>

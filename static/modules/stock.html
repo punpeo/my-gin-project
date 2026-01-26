@@ -1,0 +1,56 @@
+<div class="form-grid">
+    <div class="form-group">
+        <label class="form-label">
+            <i class="fas fa-folder-open"></i>
+            文件根目录
+        </label>
+        <input type="text" class="form-control" value="E:\kucun" id="stock-base-path" placeholder="请输入库存文件路径">
+    </div>
+
+    <div class="form-group">
+        <label class="form-label">
+            <i class="fas fa-file"></i>
+            基准文件名
+        </label>
+        <input type="text" class="form-control" value="kucun.xlsx" id="stock-base-file-name" placeholder="请输入文件名">
+    </div>
+
+    <div class="form-group">
+        <label class="form-label">
+            <i class="fas fa-calendar-days"></i>
+            操作日期
+        </label>
+        <div style="display: flex; gap: 12px; align-items: center;">
+            <input type="text" class="form-control" value="1月22日" id="stock-date-input" placeholder="x月x日" style="flex: 1;">
+            <span id="stock-date-format-indicator" style="color: var(--success); font-weight: 600; font-size: 0.95rem;">
+                <i class="fas fa-check-circle"></i> 格式正确
+            </span>
+        </div>
+    </div>
+    
+    <!-- 新增：后端响应结果展示区 -->
+    <div class="response-container" id="stock-response-container">
+        <label class="form-label">
+            <i class="fas fa-terminal"></i>
+            执行结果
+        </label>
+        <div class="response-content" id="stock-response-content">
+            <p class="response-placeholder" id="stock-response-placeholder">点击「操作」后，执行结果将展示在此处</p>
+        </div>
+    </div>
+    
+    <div class="btn-group">
+        <button class="btn btn-primary" id="stock-statistics-btn">
+            <i class="fas fa-chart-bar"></i>
+            执行库存统计
+        </button>
+        <button class="btn btn-danger" id="stock-delete-date-btn">
+            <i class="fas fa-trash-can"></i>
+            删除日期列
+        </button>
+        <button class="btn btn-warning" id="stock-cleanup-btn">
+            <i class="fas fa-trash-can"></i>
+            删除库存文件
+        </button>
+    </div>
+</div>

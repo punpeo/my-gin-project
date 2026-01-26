@@ -1,15 +1,15 @@
 /**
- * 店铺订单统计模块
- * 功能：支持文件路径和上传文件两种方式统计店铺订单
- * 初始化函数：initshop_order
+ * 订单汇总模块
+ * 功能：下载模板文件、上传并处理订单数据
+ * 初始化函数：initorder_summary
  */
 
-const ShopOrderModule = {
+const OrderSummaryModule = {
     // 模块配置
     config: {
         api: {
-            statisticByPath: '/api/v1/shop-order/statistic-by-path',
-            statisticByUpload: '/api/v1/shop-order/statistic-by-upload'
+            downloadTemplate: '/api/v1/order/download-template',
+            uploadProcess: '/api/v1/order/upload-process'
         },
         allowedFormats: ['.xlsx', '.xls'],
         maxFileSize: 20 * 1024 * 1024 // 20MB
@@ -30,7 +30,7 @@ const ShopOrderModule = {
      * @param {HTMLElement} container - 模块容器
      */
     init: function(container) {
-        console.log('初始化店铺订单统计模块');
+        console.log('初始化订单汇总模块');
         
         // 缓存DOM元素
         this.cacheElements(container);
@@ -46,7 +46,7 @@ const ShopOrderModule = {
         
         // 注册到模块管理器
         if (typeof ModulesManager !== 'undefined') {
-            ModulesManager.registerModule('shop-order', this);
+            ModulesManager.registerModule('order-summary', this);
         }
     },
     
@@ -57,24 +57,22 @@ const ShopOrderModule = {
         this.elements = {
             container: container,
             // 表单元素
-            basePathInput: container.querySelector('#shop-order-base-path'),
-            fileUploadArea: container.querySelector('#shop-order-file-upload-area'),
-            uploadIcon: container.querySelector('#shop-order-upload-icon'),
-            uploadText: container.querySelector('#shop-order-upload-text'),
-            uploadFormatHint: container.querySelector('#shop-order-upload-format-hint'),
+            personSelect: container.querySelector('#order-person-select'),
+            fileUploadArea: container.querySelector('#order-file-upload-area'),
+            uploadIcon: container.querySelector('#order-upload-icon'),
+            uploadText: container.querySelector('#order-upload-text'),
+            uploadFormatHint: container.querySelector('#order-upload-format-hint'),
             
             // 数据卡片
             dataCards: container.querySelectorAll('.data-card'),
-            shopCountValue: container.querySelector('#shop-order-shop-count'),
-            totalOrderValue: container.querySelector('#shop-order-total-order'),
-            totalAmountValue: container.querySelector('#shop-order-total-amount'),
+            shopCountValue: container.querySelector('#order-shop-count'),
+            totalOrderValue: container.querySelector('#order-total-order'),
+            totalAmountValue: container.querySelector('#order-total-amount'),
+            duplicateOrderValue: container.querySelector('#order-duplicate-order'),
             
             // 按钮
-            statisticByPathBtn: container.querySelector('#shop-order-statistic-by-path-btn'),
-            statisticByUploadBtn: container.querySelector('#shop-order-statistic-by-upload-btn'),
-            
-            // 按钮组容器
-            btnGroup: container.querySelector('.btn-group-2')
+            downloadTemplateBtn: container.querySelector('#order-download-template-btn'),
+            uploadProcessBtn: container.querySelector('#order-upload-process-btn')
         };
     },
     
@@ -102,14 +100,14 @@ const ShopOrderModule = {
     bindEvents: function() {
         const el = this.elements;
         
-        // 路径统计按钮点击
-        if (el.statisticByPathBtn) {
-            el.statisticByPathBtn.addEventListener('click', (e) => this.handleStatisticByPath(e));
+        // 下载模板按钮点击
+        if (el.downloadTemplateBtn) {
+            el.downloadTemplateBtn.addEventListener('click', (e) => this.handleDownloadTemplate(e));
         }
         
-        // 上传统计按钮点击
-        if (el.statisticByUploadBtn) {
-            el.statisticByUploadBtn.addEventListener('click', (e) => this.handleStatisticByUpload(e));
+        // 上传处理按钮点击
+        if (el.uploadProcessBtn) {
+            el.uploadProcessBtn.addEventListener('click', (e) => this.handleUploadProcess(e));
         }
         
         // 文件上传区域点击
@@ -122,11 +120,6 @@ const ShopOrderModule = {
             el.fileUploadArea.addEventListener('dragover', (e) => this.handleDragOver(e));
             el.fileUploadArea.addEventListener('dragleave', (e) => this.handleDragLeave(e));
             el.fileUploadArea.addEventListener('drop', (e) => this.handleDrop(e));
-        }
-        
-        // 输入框验证
-        if (el.basePathInput) {
-            el.basePathInput.addEventListener('input', () => this.validateBasePathInput());
         }
     },
     
@@ -262,89 +255,39 @@ const ShopOrderModule = {
     },
     
     /**
-     * 处理路径统计请求
+     * 处理下载模板
      */
-    handleStatisticByPath: async function(e) {
+    handleDownloadTemplate: async function(e) {
         e.preventDefault();
         
         if (this.data.processing) return;
         
-        // 验证文件根目录
-        if (!this.validateBasePathInput()) {
-            this.showError('请输入有效的文件根目录');
-            return;
-        }
-        
         this.setProcessing(true);
         
         try {
-            // 显示处理中消息
-            this.showProcessing('正在统计路径下的店铺订单数据...');
-            
-            // 调用路径统计API
-            const response = await this.callStatisticByPathAPI();
+            // 调用API
+            const response = await this.downloadTemplateFile();
             
             // 处理响应
-            await this.handleStatisticResponse(response, '路径统计');
+            await this.handleTemplateDownloadResponse(response);
             
         } catch (error) {
-            console.error('路径统计失败:', error);
-            this.showError(`路径统计失败: ${error.message}`);
+            console.error('下载模板失败:', error);
+            this.showError(`下载模板失败: ${error.message}`);
         } finally {
             this.setProcessing(false);
         }
     },
     
     /**
-     * 处理上传统计请求
+     * 下载模板文件
      */
-    handleStatisticByUpload: async function(e) {
-        e.preventDefault();
-        
-        if (this.data.processing) return;
-        
-        // 验证上传文件
-        if (!this.validateUploadedFile()) {
-            this.showError('请先选择要上传的文件');
-            return;
-        }
-        
-        this.setProcessing(true);
+    downloadTemplateFile: async function() {
+        this.showButtonLoading(this.elements.downloadTemplateBtn, '正在下载...');
         
         try {
-            // 显示处理中消息
-            this.showProcessing('正在统计上传文件的店铺订单数据...');
-            
-            // 调用上传统计API
-            const response = await this.callStatisticByUploadAPI();
-            
-            // 处理响应
-            await this.handleStatisticResponse(response, '上传统计');
-            
-        } catch (error) {
-            console.error('上传统计失败:', error);
-            this.showError(`上传统计失败: ${error.message}`);
-        } finally {
-            this.setProcessing(false);
-        }
-    },
-    
-    /**
-     * 通过文件路径调用统计API
-     */
-    callStatisticByPathAPI: async function() {
-        this.showButtonLoading(this.elements.statisticByPathBtn, '正在统计...');
-        
-        try {
-            const el = this.elements;
-            const basePath = el.basePathInput?.value.trim() || '';
-            
-            const response = await fetch(this.config.api.statisticByPath, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ base_path: basePath })
+            const response = await fetch(this.config.api.downloadTemplate, {
+                method: 'GET'
             });
             
             if (!response.ok) {
@@ -356,110 +299,17 @@ const ShopOrderModule = {
         } catch (error) {
             throw new Error(`API调用失败: ${error.message}`);
         } finally {
-            this.hideButtonLoading(this.elements.statisticByPathBtn, '<i class="fas fa-chart-line"></i> 执行路径下统计');
+            this.hideButtonLoading(this.elements.downloadTemplateBtn, '<i class="fas fa-cogs"></i> 下载模板文件');
         }
     },
     
     /**
-     * 通过上传文件调用统计API
+     * 处理模板下载响应
      */
-    callStatisticByUploadAPI: async function() {
-        this.showButtonLoading(this.elements.statisticByUploadBtn, '正在统计...');
-        
-        try {
-            const formData = new FormData();
-            formData.append('file', this.data.uploadedFile);
-            
-            const response = await fetch(this.config.api.statisticByUpload, {
-                method: 'POST',
-                body: formData
-            });
-            
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => ({}));
-                throw new Error(errorData.msg || `HTTP ${response.status}`);
-            }
-            
-            return response;
-        } catch (error) {
-            throw new Error(`API调用失败: ${error.message}`);
-        } finally {
-            this.hideButtonLoading(this.elements.statisticByUploadBtn, '<i class="fas fa-chart-line"></i> 执行上传文件统计');
-        }
-    },
-    
-    /**
-     * 处理统计响应
-     */
-    handleStatisticResponse: async function(response, method) {
-        const contentType = response.headers.get('content-type');
-        
-        // 检查是否为错误响应
-        if (contentType && contentType.includes('application/json')) {
-            const errorData = await response.json();
-            throw new Error(errorData.msg || `错误码: ${errorData.code}`);
-        }
-        
-        // 检查是否为Excel文件
-        if (contentType && contentType.includes('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')) {
-            // 从响应头获取统计数据
-            this.updateStatsFromHeaders(response.headers);
-            
-            // 处理Excel文件下载
-            const filename = await this.handleExcelFileDownload(response);
-            
-            // 显示成功消息
-            this.showSuccess(`${method}完成，结果文件已开始下载: ${filename}`);
-        } else {
-            throw new Error('未知的响应类型');
-        }
-    },
-    
-    /**
-     * 从响应头更新统计数据
-     */
-    updateStatsFromHeaders: function(headers) {
-        const el = this.elements;
-        
-        // 获取店铺数量
-        const shopCount = headers.get('X-Shop-Count');
-        if (shopCount && el.shopCountValue) {
-            el.shopCountValue.textContent = shopCount;
-        }
-        
-        // 获取总订单数
-        const totalOrder = headers.get('X-Total-All-Num');
-        if (totalOrder && el.totalOrderValue) {
-            el.totalOrderValue.textContent = parseInt(totalOrder).toLocaleString();
-        }
-        
-        // 获取总金额
-        const totalAmount = headers.get('X-Total-All-Amt');
-        if (totalAmount && el.totalAmountValue) {
-            el.totalAmountValue.textContent = '¥' + parseFloat(totalAmount).toLocaleString(undefined, {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2
-            });
-        }
-        
-        // 添加动画效果
-        if (el.dataCards) {
-            el.dataCards.forEach(card => {
-                card.classList.add('updated');
-                setTimeout(() => {
-                    card.classList.remove('updated');
-                }, 1000);
-            });
-        }
-    },
-    
-    /**
-     * 处理Excel文件下载
-     */
-    handleExcelFileDownload: async function(response) {
+    handleTemplateDownloadResponse: async function(response) {
         // 获取文件名
         const contentDisposition = response.headers.get('content-disposition');
-        let filename = '店铺订单统计结果.xlsx';
+        let filename = 'budan.xlsx';
         
         if (contentDisposition) {
             const filenameMatch = contentDisposition.match(/filename="(.+)"/);
@@ -479,67 +329,191 @@ const ShopOrderModule = {
         document.body.removeChild(a);
         window.URL.revokeObjectURL(url);
         
-        return filename;
+        this.showSuccess(`模板文件下载成功: ${filename}`);
     },
     
     /**
-     * 验证文件根目录输入
+     * 处理上传并处理数据
      */
-    validateBasePathInput: function() {
-        const el = this.elements;
-        if (!el.basePathInput || !el.basePathInput.value.trim()) {
-            this.markInvalid(el.basePathInput, '请输入文件根目录');
-            return false;
-        }
+    handleUploadProcess: async function(e) {
+        e.preventDefault();
         
-        this.markValid(el.basePathInput);
-        return true;
-    },
-    
-    /**
-     * 验证上传文件
-     */
-    validateUploadedFile: function() {
+        if (this.data.processing) return;
+        
+        // 验证文件
         if (!this.data.uploadedFile) {
             this.showError('请先选择要上传的文件');
-            return false;
+            return;
         }
         
-        return true;
+        this.setProcessing(true);
+        
+        try {
+            // 获取负责人
+            const person = this.getSelectedPerson();
+            
+            // 创建表单数据
+            const formData = this.createUploadFormData(person);
+            
+            // 调用API
+            const response = await this.uploadAndProcessFile(formData);
+            
+            // 处理响应
+            await this.handleUploadProcessResponse(response);
+            
+        } catch (error) {
+            console.error('上传处理失败:', error);
+            this.showError(`上传处理失败: ${error.message}`);
+        } finally {
+            this.setProcessing(false);
+        }
     },
     
     /**
-     * 标记为无效
+     * 获取选择的负责人
      */
-    markInvalid: function(element, message) {
-        if (!element) return;
+    getSelectedPerson: function() {
+        const el = this.elements;
+        if (!el.personSelect) return '';
         
-        element.classList.add('is-invalid');
-        element.classList.remove('is-valid');
-        
-        // 显示错误消息
-        let feedback = element.nextElementSibling;
-        if (!feedback || !feedback.classList.contains('invalid-feedback')) {
-            feedback = document.createElement('div');
-            feedback.className = 'invalid-feedback';
-            element.parentNode.appendChild(feedback);
-        }
-        feedback.textContent = message;
+        return el.personSelect.value || '';
     },
     
     /**
-     * 标记为有效
+     * 创建上传表单数据
      */
-    markValid: function(element) {
-        if (!element) return;
+    createUploadFormData: function(person) {
+        const formData = new FormData();
+        formData.append('excel_file', this.data.uploadedFile);
         
-        element.classList.remove('is-invalid');
-        element.classList.add('is-valid');
+        // 只有当选择了负责人才传递username参数
+        if (person) {
+            formData.append('username', person);
+        }
         
-        // 移除错误消息
-        const feedback = element.nextElementSibling;
-        if (feedback && feedback.classList.contains('invalid-feedback')) {
-            feedback.remove();
+        return formData;
+    },
+    
+    /**
+     * 上传并处理文件
+     */
+    uploadAndProcessFile: async function(formData) {
+        this.showButtonLoading(this.elements.uploadProcessBtn, '正在处理...');
+        
+        try {
+            const response = await fetch(this.config.api.uploadProcess, {
+                method: 'POST',
+                body: formData
+            });
+            
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.msg || `HTTP ${response.status}`);
+            }
+            
+            return response;
+        } catch (error) {
+            throw new Error(`API调用失败: ${error.message}`);
+        } finally {
+            this.hideButtonLoading(this.elements.uploadProcessBtn, '<i class="fas fa-rocket"></i> 上传并处理数据');
+        }
+    },
+    
+    /**
+     * 处理上传处理响应
+     */
+    handleUploadProcessResponse: async function(response) {
+        const contentType = response.headers.get('content-type');
+        
+        // 检查是否为错误响应
+        if (contentType && contentType.includes('application/json')) {
+            const errorData = await response.json();
+            throw new Error(errorData.msg || `错误码: ${errorData.code}`);
+        }
+        
+        // 检查是否为Excel文件
+        if (contentType && contentType.includes('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')) {
+            await this.handleResultFileDownload(response);
+        } else {
+            throw new Error('未知的响应类型');
+        }
+    },
+    
+    /**
+     * 处理结果文件下载
+     */
+    handleResultFileDownload: async function(response) {
+        // 获取文件名
+        const contentDisposition = response.headers.get('content-disposition');
+        let filename = '订单汇总结果.xlsx';
+        
+        if (contentDisposition) {
+            const filenameMatch = contentDisposition.match(/filename="(.+)"/);
+            if (filenameMatch && filenameMatch[1]) {
+                filename = decodeURIComponent(filenameMatch[1]);
+            }
+        }
+        
+        // 创建Blob并下载
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+        
+        // 从响应头获取统计信息
+        this.updateStatsFromHeaders(response.headers);
+        
+        // 显示成功消息
+        this.showSuccess(`文件处理完成，结果已下载: ${filename}`);
+    },
+    
+    /**
+     * 从响应头更新统计信息
+     */
+    updateStatsFromHeaders: function(headers) {
+        const el = this.elements;
+        
+        // 获取店铺数量
+        const shopCount = headers.get('X-Shop-Count');
+        if (shopCount && el.shopCountValue) {
+            el.shopCountValue.textContent = parseInt(shopCount).toLocaleString();
+        }
+        
+        // 获取去重后总订单数
+        const totalUniqueOrder = headers.get('X-Total-Unique-Order');
+        if (totalUniqueOrder && el.totalOrderValue) {
+            el.totalOrderValue.textContent = parseInt(totalUniqueOrder).toLocaleString();
+        }
+        
+        // 获取去重后总金额
+        const totalUniqueAmount = headers.get('X-Total-Unique-Amount');
+        if (totalUniqueAmount && el.totalAmountValue) {
+            const amount = parseFloat(totalUniqueAmount);
+            el.totalAmountValue.textContent = '¥' + amount.toLocaleString('zh-CN', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            });
+        }
+        
+        // 获取重复订单数
+        const duplicateCount = headers.get('X-Duplicate-Count');
+        if (duplicateCount && el.duplicateOrderValue) {
+            el.duplicateOrderValue.textContent = parseInt(duplicateCount);
+        }
+        
+        // 添加动画效果
+        if (el.dataCards) {
+            el.dataCards.forEach(card => {
+                card.classList.add('updated');
+                setTimeout(() => {
+                    card.classList.remove('updated');
+                }, 1000);
+            });
         }
     },
     
@@ -558,7 +532,7 @@ const ShopOrderModule = {
             el.fileUploadArea.classList.remove('has-file');
             el.uploadIcon.className = 'fas fa-cloud-upload-alt';
             el.uploadIcon.style.color = '';
-            el.uploadText.textContent = '点击或拖拽文件上传(可选)';
+            el.uploadText.textContent = '点击或拖拽文件上传';
             el.uploadFormatHint.textContent = '支持 .xlsx, .xls 格式';
         }
         
@@ -567,22 +541,12 @@ const ShopOrderModule = {
     },
     
     /**
-     * 显示处理中消息
-     */
-    showProcessing: function(message) {
-        console.log('处理中:', message);
-        
-        // 在按钮组上方显示临时消息
-        this.showTemporaryMessage(message, 'processing');
-    },
-    
-    /**
      * 显示成功消息
      */
     showSuccess: function(message) {
         console.log('成功:', message);
         
-        // 在按钮组上方显示临时消息
+        // 在按钮组上方显示临时成功提示
         this.showTemporaryMessage(message, 'success');
     },
     
@@ -592,7 +556,7 @@ const ShopOrderModule = {
     showError: function(message) {
         console.error('错误:', message);
         
-        // 在按钮组上方显示临时消息
+        // 在按钮组上方显示临时错误提示
         this.showTemporaryMessage(message, 'error');
     },
     
@@ -602,7 +566,7 @@ const ShopOrderModule = {
     showInfo: function(message) {
         console.info('信息:', message);
         
-        // 在按钮组上方显示临时消息
+        // 在按钮组上方显示临时信息提示
         this.showTemporaryMessage(message, 'info');
     },
     
@@ -611,7 +575,7 @@ const ShopOrderModule = {
      */
     showTemporaryMessage: function(message, type) {
         const el = this.elements;
-        if (!el.container || !el.btnGroup) return;
+        if (!el.container) return;
         
         // 移除已存在的临时消息
         const existingMessage = el.container.querySelector('.temporary-message');
@@ -625,37 +589,27 @@ const ShopOrderModule = {
         
         // 根据类型设置图标和样式
         let iconClass = 'info-circle';
-        let iconColor = '#3b82f6'; // 蓝色
-        
-        if (type === 'success') {
-            iconClass = 'check-circle';
-            iconColor = '#10b981'; // 绿色
-        } else if (type === 'error') {
-            iconClass = 'exclamation-triangle';
-            iconColor = '#ef4444'; // 红色
-        } else if (type === 'processing') {
-            iconClass = 'spinner fa-spin';
-            iconColor = '#3b82f6'; // 蓝色
-        }
+        if (type === 'success') iconClass = 'check-circle';
+        if (type === 'error') iconClass = 'exclamation-triangle';
         
         messageDiv.innerHTML = `
-            <i class="fas fa-${iconClass}" style="color: ${iconColor}; margin-right: 8px;"></i>
+            <i class="fas fa-${iconClass}"></i>
             <span>${message}</span>
         `;
         
         // 在按钮组前插入消息
-        el.btnGroup.before(messageDiv);
-        
-        // 如果不是处理中状态，3秒后自动移除
-        if (type !== 'processing') {
-            setTimeout(() => {
-                if (messageDiv.parentNode) {
-                    messageDiv.remove();
-                }
-            }, 3000);
+        if (el.container.querySelector('.btn-group-2')) {
+            el.container.querySelector('.btn-group-2').before(messageDiv);
+        } else {
+            el.container.appendChild(messageDiv);
         }
         
-        return messageDiv; // 返回消息元素引用，便于处理中状态移除
+        // 3秒后自动移除
+        setTimeout(() => {
+            if (messageDiv.parentNode) {
+                messageDiv.remove();
+            }
+        }, 3000);
     },
     
     /**
@@ -693,17 +647,6 @@ const ShopOrderModule = {
     setProcessing: function(isProcessing) {
         this.data.processing = isProcessing;
         this.updateUIState();
-        
-        // 如果处理结束，移除处理中的临时消息
-        if (!isProcessing) {
-            const el = this.elements;
-            if (el.container) {
-                const processingMessage = el.container.querySelector('.temporary-message-processing');
-                if (processingMessage) {
-                    processingMessage.remove();
-                }
-            }
-        }
     },
     
     /**
@@ -711,16 +654,15 @@ const ShopOrderModule = {
      */
     updateUIState: function() {
         const el = this.elements;
-        const hasBasePath = el.basePathInput && el.basePathInput.value.trim();
         const hasFile = !!this.data.uploadedFile;
         
         // 更新按钮状态
-        if (el.statisticByPathBtn) {
-            el.statisticByPathBtn.disabled = !hasBasePath || this.data.processing;
+        if (el.uploadProcessBtn) {
+            el.uploadProcessBtn.disabled = !hasFile || this.data.processing;
         }
         
-        if (el.statisticByUploadBtn) {
-            el.statisticByUploadBtn.disabled = !hasFile || this.data.processing;
+        if (el.downloadTemplateBtn) {
+            el.downloadTemplateBtn.disabled = this.data.processing;
         }
     },
     
@@ -728,18 +670,20 @@ const ShopOrderModule = {
      * 重置模块
      */
     reset: function() {
-        const el = this.elements;
-        
-        // 清除输入框
-        if (el.basePathInput) el.basePathInput.value = 'E:\\tongjidingdan';
-        
         // 清除上传的文件
         this.clearUploadedFile();
+        
+        // 重置负责人选择
+        const el = this.elements;
+        if (el.personSelect) {
+            el.personSelect.value = '';
+        }
         
         // 重置数据卡片为初始值
         if (el.shopCountValue) el.shopCountValue.textContent = '48';
         if (el.totalOrderValue) el.totalOrderValue.textContent = '1,204';
         if (el.totalAmountValue) el.totalAmountValue.textContent = '¥58,430';
+        if (el.duplicateOrderValue) el.duplicateOrderValue.textContent = '0';
         
         this.showInfo('模块已重置');
     },
@@ -750,11 +694,11 @@ const ShopOrderModule = {
     destroy: function() {
         // 清理事件监听器
         const el = this.elements;
-        if (el.statisticByPathBtn) {
-            el.statisticByPathBtn.removeEventListener('click', this.handleStatisticByPath);
+        if (el.downloadTemplateBtn) {
+            el.downloadTemplateBtn.removeEventListener('click', this.handleDownloadTemplate);
         }
-        if (el.statisticByUploadBtn) {
-            el.statisticByUploadBtn.removeEventListener('click', this.handleStatisticByUpload);
+        if (el.uploadProcessBtn) {
+            el.uploadProcessBtn.removeEventListener('click', this.handleUploadProcess);
         }
         if (el.fileUploadArea) {
             el.fileUploadArea.removeEventListener('click', this.handleFileSelect);
@@ -765,14 +709,14 @@ const ShopOrderModule = {
             document.body.removeChild(this.data.fileInput);
         }
         
-        console.log('店铺订单统计模块已销毁');
+        console.log('订单汇总模块已销毁');
     }
 };
 
 // 全局初始化函数
-function initshop_order(container) {
-    ShopOrderModule.init(container);
+function initorder_summary(container) {
+    OrderSummaryModule.init(container);
 }
 
 // 确保模块在全局可用
-window.ShopOrderModule = ShopOrderModule;
+window.OrderSummaryModule = OrderSummaryModule;
