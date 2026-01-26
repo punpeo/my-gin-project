@@ -21,24 +21,23 @@
             操作日期
         </label>
         <div style="display: flex; gap: 12px; align-items: center;">
-            <input type="text" class="form-control" value="1月22日" id="stock-date-input" placeholder="x月x日" style="flex: 1;">
+            <input type="text" class="form-control" value="1月22日" id="stock-date-input" placeholder="x月x日"
+                style="flex: 1;">
             <span id="stock-date-format-indicator" style="color: var(--success); font-weight: 600; font-size: 0.95rem;">
                 <i class="fas fa-check-circle"></i> 格式正确
             </span>
         </div>
     </div>
-    
-    <!-- 新增：后端响应结果展示区 -->
+    <!-- 新增：操作结果展示区（初始空白） -->
     <div class="response-container" id="stock-response-container">
         <label class="form-label">
             <i class="fas fa-terminal"></i>
-            执行结果
+            操作结果
         </label>
         <div class="response-content" id="stock-response-content">
-            <p class="response-placeholder" id="stock-response-placeholder">点击「操作」后，执行结果将展示在此处</p>
+            <!-- 初始空白，无占位文字 -->
         </div>
     </div>
-    
     <div class="btn-group">
         <button class="btn btn-primary" id="stock-statistics-btn">
             <i class="fas fa-chart-bar"></i>

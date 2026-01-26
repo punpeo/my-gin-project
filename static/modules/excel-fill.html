@@ -4,9 +4,10 @@
             <i class="fas fa-folder-open"></i>
             文件根目录
         </label>
-        <input type="text" class="form-control" value="E:\Xyq-Works\Excel_Fill" id="excel-fill-root-dir" placeholder="请输入文件路径">
+        <input type="text" class="form-control" value="E:\Xyq-Works\Excel_Fill" id="excel-fill-root-dir"
+            placeholder="请输入文件路径">
     </div>
-    
+
     <div class="form-row">
         <div class="form-group">
             <label class="form-label">
@@ -23,7 +24,7 @@
             <input type="text" class="form-control" placeholder="例如：B" value="B" id="excel-fill-source-fill-col">
         </div>
     </div>
-    
+
     <div class="form-row">
         <div class="form-group">
             <label class="form-label">
@@ -40,18 +41,26 @@
             <input type="text" class="form-control" placeholder="例如：C" value="C" id="excel-fill-target-value-col">
         </div>
     </div>
-
-    <!-- 新增：后端响应结果展示区 -->
-    <div class="response-container" id="excel-fill-response-container">
-        <label class="form-label">
-            <i class="fas fa-terminal"></i>
-            执行结果
-        </label>
-        <div class="response-content" id="excel-fill-response-content">
-            <p class="response-placeholder" id="excel-fill-response-placeholder">点击「开始匹配填充」后，执行结果将展示在此处</p>
+    
+    <div class="data-cards-4">
+        <div class="data-card">
+            <div class="data-value">0</div>
+            <div class="data-label">总行数</div>
+        </div>
+        <div class="data-card">
+            <div class="data-value">0</div>
+            <div class="data-label">文件数量</div>
+        </div>
+        <div class="data-card">
+            <div class="data-value">0</div>
+            <div class="data-label">跳过文件数量</div>
+        </div>
+        <div class="data-card">
+            <div class="data-value">0</div>
+            <div class="data-label">分钟数</div>
         </div>
     </div>
-    
+
     <button class="btn btn-primary" id="excel-fill-process-btn">
         <i class="fas fa-play-circle"></i>
         开始匹配填充

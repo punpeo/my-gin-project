@@ -136,7 +136,7 @@ const ExcelSalesModule = {
             
         } catch (error) {
             console.error('处理失败:', error);
-            this.showError(`处理失败: ${error.message}`);
+            this.showError(error.message);
         } finally {
             this.setProcessing(false);
         }
@@ -176,14 +176,31 @@ const ExcelSalesModule = {
                 body: JSON.stringify(requestData)
             });
             
+            // 检查HTTP状态码
             if (!response.ok) {
-                const errorData = await response.json().catch(() => ({}));
-                throw new Error(errorData.msg || `HTTP ${response.status}`);
+                // 对于400和500错误，解析JSON错误响应
+                if (response.status === 400 || response.status === 500) {
+                    const errorData = await response.json().catch(() => null);
+                    
+                    if (errorData && errorData.msg) {
+                        // 使用后端返回的错误信息
+                        throw new Error(errorData.msg);
+                    } else {
+                        // 如果没有错误信息，使用默认消息
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
+                } else {
+                    // 其他HTTP错误
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
             }
             
             return response;
         } catch (error) {
-            throw new Error(`API调用失败: ${error.message}`);
+            if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
+                throw new Error('网络连接失败，请检查网络连接');
+            }
+            throw error; // 重新抛出已处理的错误
         } finally {
             this.hideButtonLoading(this.elements.processBtn, '<i class="fas fa-cogs"></i> 开始分组汇总');
         }
@@ -195,12 +212,6 @@ const ExcelSalesModule = {
     handleProcessResponse: async function(response) {
         const contentType = response.headers.get('content-type');
         
-        // 检查是否为错误响应
-        if (contentType && contentType.includes('application/json')) {
-            const errorData = await response.json();
-            throw new Error(errorData.msg || `错误码: ${errorData.code}`);
-        }
-        
         // 检查是否为Excel文件
         if (contentType && contentType.includes('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')) {
             // 处理Excel文件下载
@@ -209,7 +220,13 @@ const ExcelSalesModule = {
             // 显示成功消息
             this.showSuccess(`处理完成，结果文件已开始下载: ${filename}`);
         } else {
-            throw new Error('未知的响应类型');
+            // 如果不是Excel文件，尝试解析错误
+            const errorData = await response.json().catch(() => null);
+            if (errorData && errorData.msg) {
+                throw new Error(errorData.msg);
+            } else {
+                throw new Error('未知的响应类型');
+            }
         }
     },
     
@@ -320,23 +337,39 @@ const ExcelSalesModule = {
     },
     
     /**
+     * 清除响应容器状态
+     */
+    clearResponseContainer: function() {
+        const el = this.elements;
+        if (!el.responseContent) return;
+        
+        // 移除所有状态类
+        el.responseContent.classList.remove('success', 'error', 'loading');
+        
+        // 恢复默认样式
+        el.responseContent.style.border = '1px solid var(--gray-200)';
+        el.responseContent.style.background = 'linear-gradient(135deg, var(--gray-50), white)';
+        el.responseContent.style.color = 'var(--gray-700)';
+    },
+    
+    /**
      * 显示处理中状态
      */
     showProcessing: function(message) {
         const el = this.elements;
         if (!el.responseContainer || !el.responseContent) return;
         
+        // 清除之前的样式
+        this.clearResponseContainer();
+        
+        // 应用加载中样式
+        el.responseContent.classList.add('loading');
+        
         el.responseContainer.classList.remove('d-none');
         el.responseContent.innerHTML = `
-            <div class="processing-indicator">
-                <i class="fas fa-spinner fa-spin"></i>
-                <div class="processing-text">
-                    <h5>${message || '正在处理'}</h5>
-                    <p>请稍候...</p>
-                    <div class="progress" style="height: 4px; margin-top: 10px;">
-                        <div class="progress-bar progress-bar-striped progress-bar-animated" style="width: 100%"></div>
-                    </div>
-                </div>
+            <div style="text-align: center; padding: 10px;">
+                <i class="fas fa-spinner fa-spin" style="font-size: 24px; margin-bottom: 8px; display: block; color: var(--gray-500);"></i>
+                <div style="font-size: 0.9rem; color: var(--gray-600);">${message || '正在处理'}</div>
             </div>
         `;
     },
@@ -348,16 +381,18 @@ const ExcelSalesModule = {
         const el = this.elements;
         if (!el.responseContainer || !el.responseContent) return;
         
+        // 清除之前的样式
+        this.clearResponseContainer();
+        
+        // 应用成功样式
+        el.responseContent.classList.add('success');
+        
         el.responseContent.innerHTML = `
-            <div class="success-message">
-                <i class="fas fa-check-circle text-success"></i>
-                <div class="message-text">
-                    <h5>处理完成</h5>
-                    <p>${message}</p>
-                    <div class="mt-2">
-                        <i class="fas fa-info-circle text-info"></i>
-                        <small>文件已开始下载，如未自动下载，请检查浏览器设置</small>
-                    </div>
+            <div style="display: flex; align-items: center; height: 100%;">
+                <i class="fas fa-check-circle" style="font-size: 20px; margin-right: 10px; color: var(--success);"></i>
+                <div>
+                    <div style="font-weight: 600; margin-bottom: 4px; color: var(--success);">处理完成</div>
+                    <div style="font-size: 0.9rem;">${message}</div>
                 </div>
             </div>
         `;
@@ -370,15 +405,21 @@ const ExcelSalesModule = {
         const el = this.elements;
         if (!el.responseContainer || !el.responseContent) return;
         
+        // 清除之前的样式
+        this.clearResponseContainer();
+        
+        // 应用错误样式
+        el.responseContent.classList.add('error');
+        
         el.responseContainer.classList.remove('d-none');
         el.responseContent.innerHTML = `
-            <div class="error-message">
-                <i class="fas fa-exclamation-triangle text-danger"></i>
-                <div class="message-text">
-                    <h5>处理失败</h5>
-                    <p>${message}</p>
-                    <button class="btn btn-sm btn-outline-primary mt-2" onclick="window.ExcelSalesModule.retry()">
-                        <i class="fas fa-redo"></i> 重试
+            <div style="display: flex; align-items: center; height: 100%;">
+                <i class="fas fa-exclamation-triangle" style="font-size: 20px; margin-right: 10px; color: var(--danger);"></i>
+                <div style="flex: 1;">
+                    <div style="font-weight: 600; margin-bottom: 4px; color: var(--danger);">操作失败</div>
+                    <div style="font-size: 0.9rem; margin-bottom: 8px;">${message}</div>
+                    <button class="btn btn-sm btn-outline-primary" onclick="window.ExcelSalesModule.retry()" style="padding: 4px 12px; font-size: 0.85rem;">
+                        <i class="fas fa-redo" style="margin-right: 4px;"></i> 重试
                     </button>
                 </div>
             </div>
@@ -420,6 +461,9 @@ const ExcelSalesModule = {
     retry: function() {
         const el = this.elements;
         if (el.responseContent) {
+            // 清除响应容器样式
+            this.clearResponseContainer();
+            
             el.responseContent.innerHTML = `
                 <p class="response-placeholder">点击「开始分组汇总」后，执行结果将展示在此处</p>
             `;
@@ -459,12 +503,42 @@ const ExcelSalesModule = {
         
         // 重置响应容器
         if (el.responseContent) {
+            this.clearResponseContainer();
             el.responseContent.innerHTML = `
                 <p class="response-placeholder">点击「开始分组汇总」后，执行结果将展示在此处</p>
             `;
         }
         
         this.showInfo('模块已重置');
+    },
+    
+    /**
+     * 显示信息消息
+     */
+    showInfo: function(message) {
+        console.info('信息:', message);
+        
+        const el = this.elements;
+        if (el.responseContainer && el.responseContent) {
+            this.clearResponseContainer();
+            el.responseContainer.classList.remove('d-none');
+            el.responseContent.innerHTML = `
+                <div style="display: flex; align-items: center; height: 100%;">
+                    <i class="fas fa-info-circle" style="font-size: 20px; margin-right: 10px; color: var(--info);"></i>
+                    <div style="font-size: 0.9rem;">${message}</div>
+                </div>
+            `;
+            
+            // 3秒后重置
+            setTimeout(() => {
+                if (el.responseContent) {
+                    this.clearResponseContainer();
+                    el.responseContent.innerHTML = `
+                        <p class="response-placeholder">点击「开始分组汇总」后，执行结果将展示在此处</p>
+                    `;
+                }
+            }, 3000);
+        }
     },
     
     /**

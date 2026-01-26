@@ -6,7 +6,7 @@
         </label>
         <input type="text" class="form-control" value="E:/excel_files" id="excel-base-path" placeholder="请输入Excel文件根目录">
     </div>
-    
+
     <div class="form-row">
         <div class="form-group">
             <label class="form-label">
@@ -23,14 +23,15 @@
             <input type="text" class="form-control" placeholder="例如：P001" id="excel-match-value">
         </div>
     </div>
-    
+
     <div class="form-row">
         <div class="form-group">
             <label class="form-label">
                 <i class="fas fa-bookmark"></i>
                 保留列
             </label>
-            <input type="text" class="form-control" placeholder="例如：B,C 或 产品ID,产品名称" value="B,C" id="excel-keep-columns">
+            <input type="text" class="form-control" placeholder="例如：B,C 或 产品ID,产品名称" value="B,C"
+                id="excel-keep-columns">
         </div>
         <div class="form-group">
             <label class="form-label">
@@ -40,18 +41,29 @@
             <input type="text" class="form-control" placeholder="例如：D 或 销量" value="D" id="excel-sum-column">
         </div>
     </div>
-    
-    <!-- 新增：后端响应结果展示区 -->
-    <div class="response-container" id="excel-response-container">
-        <label class="form-label">
-            <i class="fas fa-terminal"></i>
-            执行结果
-        </label>
-        <div class="response-content" id="excel-response-content">
-            <p class="response-placeholder" id="excel-response-placeholder">点击「开始分组汇总」后，执行结果将展示在此处</p>
+    <div class="data-cards">
+        <div class="data-card">
+            <div class="data-value">0</div>
+            <div class="data-label">总行数</div>
+        </div>
+        <div class="data-card">
+            <div class="data-value">0</div>
+            <div class="data-label">填充行数</div>
+        </div>
+        <div class="data-card">
+            <div class="data-value">0</div>
+            <div class="data-label">跳过空行数量</div>
         </div>
     </div>
-    
+    <div class="response-container-lg">
+        <label class="form-label">
+            <i class="fas fa-terminal"></i>
+            操作结果
+        </label>
+        <div class="response-content">
+            <!-- 初始空白，无占位文字 -->
+        </div>
+    </div>
     <button class="btn btn-primary" id="excel-process-btn">
         <i class="fas fa-cogs"></i>
         开始分组汇总

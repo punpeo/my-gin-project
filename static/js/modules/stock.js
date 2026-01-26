@@ -8,7 +8,7 @@ const StockModule = {
     // 模块配置
     config: {
         api: {
-            statistics: '/api/v1/stock/statistics',
+            statistics: '/api/v1/stock/statistic',
             deleteDateColumn: '/api/v1/stock/delete-date-column',
             cleanup: '/api/v1/stock/cleanup'
         }
@@ -38,8 +38,6 @@ const StockModule = {
      * @param {HTMLElement} container - 模块容器
      */
     init: function(container) {
-        console.log('初始化库存统计模块');
-        
         // 缓存DOM元素
         this.cacheElements(container);
         
@@ -55,9 +53,24 @@ const StockModule = {
         // 初始化组件
         this.initComponents();
         
+        // 初始化响应容器（设置为空白）
+        this.initResponseContainer();
+        
         // 注册到模块管理器
         if (typeof ModulesManager !== 'undefined') {
             ModulesManager.registerModule('stock', this);
+        }
+    },
+    
+    /**
+     * 初始化响应容器（初始空白）
+     */
+    initResponseContainer: function() {
+        const el = this.elements;
+        if (el.responseContent) {
+            el.responseContent.innerHTML = ''; // 清空占位文字，实现初始空白
+            // 移除所有状态类，确保初始样式干净
+            el.responseContent.classList.remove('loading', 'success', 'error');
         }
     },
     
@@ -80,8 +93,7 @@ const StockModule = {
             
             // 响应容器
             responseContainer: container.querySelector('#stock-response-container'),
-            responseContent: container.querySelector('#stock-response-content'),
-            responsePlaceholder: container.querySelector('#stock-response-placeholder')
+            responseContent: container.querySelector('#stock-response-content')
         };
     },
     
@@ -127,18 +139,9 @@ const StockModule = {
         if (currentInputValue === '' || currentInputValue === currentDateStr) {
             if (currentInputValue !== currentDateStr) {
                 this.setCurrentDate();
-                this.showDateUpdatedNotification();
+                this.showTemporaryInfo('日期已自动更新为当前日期');
             }
         }
-    },
-    
-    /**
-     * 显示日期更新通知
-     */
-    showDateUpdatedNotification: function() {
-        console.log('日期已自动更新为当前日期');
-        // 可以在响应容器显示简短提示
-        this.showTemporaryInfo('日期已自动更新为当前日期');
     },
     
     /**
@@ -271,6 +274,45 @@ const StockModule = {
     },
     
     /**
+     * 通用API调用函数
+     * @param {string} apiPath - API地址
+     * @param {object} requestData - 请求参数
+     * @param {HTMLElement} button - 操作按钮
+     * @param {string} loadingText - 按钮加载文本
+     * @returns {object} 后端响应数据
+     */
+    callAPI: async function(apiPath, requestData, button, loadingText) {
+        // 显示按钮加载状态
+        this.showButtonLoading(button, loadingText);
+        
+        try {
+            const response = await fetch(apiPath, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(requestData)
+            });
+            
+            // 解析响应数据
+            const responseData = await response.json();
+            
+            // 检查业务状态码
+            if (responseData.code !== 20000 && responseData.code !== 200) {
+                // 业务错误，使用后端返回的错误信息
+                throw new Error(responseData.msg || `业务处理失败（错误码：${responseData.code}）`);
+            }
+            
+            return responseData;
+        } catch (error) {
+            throw new Error(error.message || 'API调用失败');
+        } finally {
+            // 恢复按钮状态
+            this.hideButtonLoading(button);
+        }
+    },
+    
+    /**
      * 处理库存统计
      */
     handleStatistics: async function(e) {
@@ -280,13 +322,7 @@ const StockModule = {
         
         // 验证输入
         if (!this.validateInputs()) {
-            this.showError('请填写所有必填项');
-            return;
-        }
-        
-        // 验证日期格式
-        if (!this.validateDateFormat()) {
-            this.showError('日期格式不正确，请使用"x月x日"格式');
+            this.showError('请填写所有必填项并确保格式正确');
             return;
         }
         
@@ -299,14 +335,16 @@ const StockModule = {
             // 显示处理中状态
             this.showProcessing('正在执行库存统计...');
             
-            // 调用API
-            const response = await this.callStatisticsAPI(requestData);
+            // 调用库存统计API
+            const response = await this.fetchStatistics(requestData);
             
-            // 处理响应
-            await this.handleStatisticsResponse(response);
+            // 处理文件下载
+            const filename = await this.handleExcelFileDownload(response);
+            
+            // 显示成功消息
+            this.showSuccess(`库存统计完成，结果文件已下载: ${filename}`);
             
         } catch (error) {
-            console.error('库存统计失败:', error);
             this.showError(`库存统计失败: ${error.message}`);
         } finally {
             this.setProcessing(false);
@@ -314,22 +352,9 @@ const StockModule = {
     },
     
     /**
-     * 获取库存统计请求数据
+     * 调用库存统计API（特殊处理，不通过callAPI）
      */
-    getStatisticsRequestData: function() {
-        const el = this.elements;
-        
-        return {
-            base_path: el.basePathInput?.value.trim() || '',
-            base_file_name: el.baseFileNameInput?.value.trim() || '',
-            col_date_name: el.dateInput?.value.trim() || ''
-        };
-    },
-    
-    /**
-     * 调用库存统计API
-     */
-    callStatisticsAPI: async function(requestData) {
+    fetchStatistics: async function(requestData) {
         this.showButtonLoading(this.elements.statisticsBtn, '正在统计...');
         
         try {
@@ -341,40 +366,27 @@ const StockModule = {
                 body: JSON.stringify(requestData)
             });
             
+            // 如果响应不成功，尝试解析错误响应
             if (!response.ok) {
-                const errorData = await response.json().catch(() => ({}));
-                throw new Error(errorData.msg || `HTTP ${response.status}`);
+                // 尝试解析错误响应
+                try {
+                    const errorData = await response.json();
+                    // 优先使用后端返回的具体错误信息
+                    throw new Error(errorData.msg || `请求失败（${response.status}）`);
+                } catch (e) {
+                    // 如果无法解析为JSON，则使用状态码
+                    throw new Error(`请求失败（${response.status}）`);
+                }
             }
             
             return response;
         } catch (error) {
-            throw new Error(`API调用失败: ${error.message}`);
+            if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
+                throw new Error('网络连接失败，请检查网络连接');
+            }
+            throw error;
         } finally {
-            this.hideButtonLoading(this.elements.statisticsBtn, '<i class="fas fa-chart-bar"></i> 执行库存统计');
-        }
-    },
-    
-    /**
-     * 处理库存统计响应
-     */
-    handleStatisticsResponse: async function(response) {
-        const contentType = response.headers.get('content-type');
-        
-        // 检查是否为错误响应
-        if (contentType && contentType.includes('application/json')) {
-            const errorData = await response.json();
-            throw new Error(errorData.msg || `错误码: ${errorData.code}`);
-        }
-        
-        // 检查是否为Excel文件
-        if (contentType && contentType.includes('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')) {
-            // 处理Excel文件下载
-            const filename = await this.handleExcelFileDownload(response);
-            
-            // 显示成功消息
-            this.showSuccess(`库存统计完成，结果已下载: ${filename}`);
-        } else {
-            throw new Error('未知的响应类型');
+            this.hideButtonLoading(this.elements.statisticsBtn);
         }
     },
     
@@ -408,6 +420,19 @@ const StockModule = {
     },
     
     /**
+     * 获取库存统计请求数据
+     */
+    getStatisticsRequestData: function() {
+        const el = this.elements;
+        
+        return {
+            base_path: el.basePathInput?.value.trim() || '',
+            base_file_name: el.baseFileNameInput?.value.trim() || '',
+            col_date_name: el.dateInput?.value.trim() || ''
+        };
+    },
+    
+    /**
      * 处理删除日期列
      */
     handleDeleteDateColumn: async function(e) {
@@ -417,13 +442,7 @@ const StockModule = {
         
         // 验证输入
         if (!this.validateInputs()) {
-            this.showError('请填写所有必填项');
-            return;
-        }
-        
-        // 验证日期格式
-        if (!this.validateDateFormat()) {
-            this.showError('日期格式不正确，请使用"x月x日"格式');
+            this.showError('请填写所有必填项并确保格式正确');
             return;
         }
         
@@ -436,14 +455,18 @@ const StockModule = {
             // 显示处理中状态
             this.showProcessing('正在删除日期列...');
             
-            // 调用API
-            const response = await this.callDeleteDateAPI(requestData);
+            // 调用通用API函数
+            const responseData = await this.callAPI(
+                this.config.api.deleteDateColumn,
+                requestData,
+                this.elements.deleteDateBtn,
+                '正在删除...'
+            );
             
-            // 处理响应
-            await this.handleDeleteDateResponse(response);
+            // 显示成功消息
+            this.showSuccess(responseData.msg || '删除日期列成功');
             
         } catch (error) {
-            console.error('删除日期列失败:', error);
             this.showError(`删除日期列失败: ${error.message}`);
         } finally {
             this.setProcessing(false);
@@ -461,47 +484,6 @@ const StockModule = {
             base_file_name: el.baseFileNameInput?.value.trim() || '',
             date: el.dateInput?.value.trim() || ''
         };
-    },
-    
-    /**
-     * 调用删除日期列API
-     */
-    callDeleteDateAPI: async function(requestData) {
-        this.showButtonLoading(this.elements.deleteDateBtn, '正在删除...');
-        
-        try {
-            const response = await fetch(this.config.api.deleteDateColumn, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(requestData)
-            });
-            
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => ({}));
-                throw new Error(errorData.msg || `HTTP ${response.status}`);
-            }
-            
-            return response;
-        } catch (error) {
-            throw new Error(`API调用失败: ${error.message}`);
-        } finally {
-            this.hideButtonLoading(this.elements.deleteDateBtn, '<i class="fas fa-trash-can"></i> 删除日期列');
-        }
-    },
-    
-    /**
-     * 处理删除日期列响应
-     */
-    handleDeleteDateResponse: async function(response) {
-        const data = await response.json();
-        
-        if (data.code === 200) {
-            this.showSuccess(data.msg || '删除日期列成功');
-        } else {
-            throw new Error(data.msg || `错误码: ${data.code}`);
-        }
     },
     
     /**
@@ -532,14 +514,22 @@ const StockModule = {
             // 显示处理中状态
             this.showProcessing('正在清理库存文件...');
             
-            // 调用API
-            const response = await this.callCleanupAPI(requestData);
+            // 调用通用API函数
+            const responseData = await this.callAPI(
+                this.config.api.cleanup,
+                requestData,
+                this.elements.cleanupBtn,
+                '正在清理...'
+            );
             
-            // 处理响应
-            await this.handleCleanupResponse(response);
+            // 拼接成功消息
+            let successMsg = responseData.msg || '清理库存文件成功';
+            if (responseData.data && responseData.data.cleanup_count !== undefined) {
+                successMsg += `，共清理 ${responseData.data.cleanup_count} 个文件`;
+            }
+            this.showSuccess(successMsg);
             
         } catch (error) {
-            console.error('清理库存文件失败:', error);
             this.showError(`清理库存文件失败: ${error.message}`);
         } finally {
             this.setProcessing(false);
@@ -556,55 +546,6 @@ const StockModule = {
             base_path: el.basePathInput?.value.trim() || '',
             base_file_name: el.baseFileNameInput?.value.trim() || ''
         };
-    },
-    
-    /**
-     * 调用清理库存文件API
-     */
-    callCleanupAPI: async function(requestData) {
-        this.showButtonLoading(this.elements.cleanupBtn, '正在清理...');
-        
-        try {
-            const response = await fetch(this.config.api.cleanup, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(requestData)
-            });
-            
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => ({}));
-                throw new Error(errorData.msg || `HTTP ${response.status}`);
-            }
-            
-            return response;
-        } catch (error) {
-            throw new Error(`API调用失败: ${error.message}`);
-        } finally {
-            this.hideButtonLoading(this.elements.cleanupBtn, '<i class="fas fa-trash-can"></i> 删除库存文件');
-        }
-    },
-    
-    /**
-     * 处理清理库存文件响应
-     */
-    handleCleanupResponse: async function(response) {
-        const data = await response.json();
-        
-        if (data.code === 200) {
-            const message = data.msg || '清理完成';
-            const hint = data.data?.hint || '';
-            
-            let fullMessage = message;
-            if (hint) {
-                fullMessage += `<br><small>${hint}</small>`;
-            }
-            
-            this.showSuccess(fullMessage);
-        } else {
-            throw new Error(data.msg || `错误码: ${data.code}`);
-        }
     },
     
     /**
@@ -712,19 +653,13 @@ const StockModule = {
         const el = this.elements;
         if (!el.responseContainer || !el.responseContent) return;
         
+        // 显示容器，重置样式类
         el.responseContainer.classList.remove('d-none');
-        el.responseContent.innerHTML = `
-            <div class="processing-indicator">
-                <i class="fas fa-spinner fa-spin"></i>
-                <div class="processing-text">
-                    <h5>${message || '正在处理'}</h5>
-                    <p>请稍候...</p>
-                    <div class="progress" style="height: 4px; margin-top: 10px;">
-                        <div class="progress-bar progress-bar-striped progress-bar-animated" style="width: 100%"></div>
-                    </div>
-                </div>
-            </div>
-        `;
+        el.responseContent.classList.remove('success', 'error');
+        el.responseContent.classList.add('loading');
+        
+        // 简洁的加载提示
+        el.responseContent.textContent = message || '正在处理，请稍候...';
     },
     
     /**
@@ -734,15 +669,13 @@ const StockModule = {
         const el = this.elements;
         if (!el.responseContainer || !el.responseContent) return;
         
-        el.responseContent.innerHTML = `
-            <div class="success-message">
-                <i class="fas fa-check-circle text-success"></i>
-                <div class="message-text">
-                    <h5>处理完成</h5>
-                    <p>${message}</p>
-                </div>
-            </div>
-        `;
+        // 显示容器，重置样式类
+        el.responseContainer.classList.remove('d-none');
+        el.responseContent.classList.remove('loading', 'error');
+        el.responseContent.classList.add('success');
+        
+        // 简洁的成功提示
+        el.responseContent.textContent = message || '处理完成';
     },
     
     /**
@@ -752,19 +685,13 @@ const StockModule = {
         const el = this.elements;
         if (!el.responseContainer || !el.responseContent) return;
         
+        // 显示容器，重置样式类
         el.responseContainer.classList.remove('d-none');
-        el.responseContent.innerHTML = `
-            <div class="error-message">
-                <i class="fas fa-exclamation-triangle text-danger"></i>
-                <div class="message-text">
-                    <h5>处理失败</h5>
-                    <p>${message}</p>
-                    <button class="btn btn-sm btn-outline-primary mt-2" onclick="window.StockModule.retry()">
-                        <i class="fas fa-redo"></i> 重试
-                    </button>
-                </div>
-            </div>
-        `;
+        el.responseContent.classList.remove('loading', 'success');
+        el.responseContent.classList.add('error');
+        
+        // 简洁的错误提示
+        el.responseContent.textContent = message || '处理异常';
     },
     
     /**
@@ -776,7 +703,7 @@ const StockModule = {
         const originalText = button.innerHTML;
         button.setAttribute('data-original-text', originalText);
         button.innerHTML = `
-            <i class="fas fa-spinner fa-spin"></i> ${loadingText}
+            <i class="fas fa-spinner fa-spin"></i> ${loadingText || '处理中...'}
         `;
         button.disabled = true;
     },
@@ -784,14 +711,13 @@ const StockModule = {
     /**
      * 隐藏按钮加载状态
      */
-    hideButtonLoading: function(button, defaultText) {
+    hideButtonLoading: function(button) {
         if (!button) return;
         
         const originalText = button.getAttribute('data-original-text');
         if (originalText) {
             button.innerHTML = originalText;
-        } else if (defaultText) {
-            button.innerHTML = defaultText;
+            button.removeAttribute('data-original-text');
         }
         button.disabled = false;
     },
@@ -804,22 +730,17 @@ const StockModule = {
         if (!el.responseContainer || !el.responseContent) return;
         
         const originalContent = el.responseContent.innerHTML;
+        const originalClasses = el.responseContent.className;
         
+        // 显示临时提示
         el.responseContainer.classList.remove('d-none');
-        el.responseContent.innerHTML = `
-            <div class="info-message">
-                <i class="fas fa-info-circle text-info"></i>
-                <div class="message-text">
-                    <h5>提示</h5>
-                    <p>${message}</p>
-                </div>
-            </div>
-        `;
+        el.responseContent.classList.remove('loading', 'success', 'error');
+        el.responseContent.textContent = message;
         
-        // 3秒后恢复原始内容
+        // 3秒后恢复空白状态
         setTimeout(() => {
-            if (el.responseContent) {
-                el.responseContent.innerHTML = originalContent;
+            if (el.responseContent && el.responseContent.textContent === message) {
+                this.initResponseContainer();
             }
         }, 3000);
     },
@@ -828,12 +749,8 @@ const StockModule = {
      * 重试
      */
     retry: function() {
-        const el = this.elements;
-        if (el.responseContent) {
-            el.responseContent.innerHTML = `
-                <p class="response-placeholder">点击「操作」后，执行结果将展示在此处</p>
-            `;
-        }
+        // 重置响应容器为空白
+        this.initResponseContainer();
     },
     
     /**
@@ -876,12 +793,8 @@ const StockModule = {
         // 重启实时日期更新
         this.startRealTimeDateUpdate();
         
-        // 重置响应容器
-        if (el.responseContent) {
-            el.responseContent.innerHTML = `
-                <p class="response-placeholder">点击「操作」后，执行结果将展示在此处</p>
-            `;
-        }
+        // 重置响应容器为空白
+        this.initResponseContainer();
         
         this.showTemporaryInfo('模块已重置');
     },
@@ -907,8 +820,6 @@ const StockModule = {
             clearInterval(this.data.dateUpdateInterval);
             this.data.dateUpdateInterval = null;
         }
-        
-        console.log('库存统计模块已销毁');
     }
 };
 

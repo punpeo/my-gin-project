@@ -499,54 +499,173 @@ select.form-control {
 
 .response-container .form-label {
     display: block;
-    margin-bottom: 8px;
+    margin-bottom: 5px;
     font-weight: 600;
     color: var(--gray-700);
 }
 
 /* 响应内容展示区 */
+/* ========== 新增：响应结果展示区样式 ========== */
+/* ========== 响应结果展示区样式（80px高度 - 原版） ========== */
+.response-container {
+    margin: 16px 0; /* 增加上下间距，和表单/按钮区区分开 */
+    width: 100%;
+}
+
+.response-container .form-label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 600;
+    color: var(--gray-700);
+    font-size: 0.95rem; /* 标签字体稍大，突出标题 */
+}
+
+.response-container .form-label i {
+    color: var(--primary); /* 图标用主题色，增强视觉识别 */
+    margin-right: 6px;
+}
+
+/* 核心：固定80px高度 + 溢出隐藏 + 适配业务文本展示 */
 .response-content {
-    min-height: 0px;
-    padding: 5px;
+    height: 80px; /* 原版高度 */
+    overflow: hidden; /* 禁用滚动，超出内容隐藏 */
+    padding: 16px 12px; /* 增加内边距，文本更易读 */
     border-radius: var(--border-radius);
     border: 1px solid var(--gray-200);
-    background: var(--white);
-    font-family: "Consolas", "Monaco", monospace;
-    font-size: 0.9rem;
-    line-height: 1.6;
-    white-space: pre-wrap; /* 保留换行和空格，适配后端输出的日志/文本 */
-    word-break: break-all;
+    background: linear-gradient(135deg, var(--gray-50), white);
+    font-family: "Consolas", "Microsoft YaHei", sans-serif; /* 兼容中文+等宽字体 */
+    font-size: 0.95rem; /* 字体稍大，提升可读性 */
+    line-height: 1.8; /* 行高适配中文，避免拥挤 */
+    white-space: pre-wrap; /* 保留换行，适配多行文本 */
+    word-break: break-all; /* 超长文本自动换行，不溢出 */
+    color: var(--gray-700); /* 默认文本颜色 */
+    transition: all 0.3s var(--transition); /* 状态切换动画 */
 }
 
-/* 初始占位提示 */
-.response-placeholder {
-    color: var(--gray-400);
-    text-align: center;
-    margin: 0;
-    line-height: 10px; /* 垂直居中 */
+/* 成功状态样式（绿色文本+边框） */
+.response-content.success {
+    border-color: var(--success);
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.05), white);
+    color: var(--success);
 }
 
-/* 结合之前的状态样式：加载中 */
+/* 失败状态样式（红色文本+边框） */
+.response-content.error {
+    border-color: var(--danger);
+    background: linear-gradient(135deg, rgba(239, 68, 68, 0.05), white);
+    color: var(--danger);
+}
+
+/* 加载中状态样式（虚线边框+灰色背景） */
 .response-content.loading {
-    background: linear-gradient(135deg, var(--gray-50), var(--gray-100));
     border: 2px dashed var(--gray-300);
+    background: linear-gradient(135deg, var(--gray-50), var(--gray-100));
+    color: var(--gray-500);
     display: flex;
     align-items: center;
     justify-content: center;
 }
 
-/* 成功状态 */
-.response-content.success {
-    border-color: var(--success);
-    background: linear-gradient(135deg, rgba(16, 185, 129, 0.05), white);
-    color: var(--success-dark);
+/* 移动端适配（保持80px高度，仅微调内边距） */
+@media (max-width: 768px) {
+    .response-container {
+        margin: 12px 0;
+    }
+    .response-content {
+        height: 80px; /* 移动端仍保持80px高度 */
+        padding: 12px 10px;
+        font-size: 0.9rem;
+    }
 }
 
-/* 错误状态 */
-.response-content.error {
+/* ========== 响应结果展示区样式（120px高度 - 新增版） ========== */
+.response-container-lg { /* 新增-lg后缀区分 */
+    margin: 0px 0;
+    width: 100%;
+}
+
+.response-container-lg .form-label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 600;
+    color: var(--gray-700);
+    font-size: 0.95rem;
+}
+
+.response-container-lg .form-label i {
+    color: var(--primary);
+    margin-right: 6px;
+}
+
+/* 核心：固定120px高度（仅修改此处） */
+.response-content-lg { /* 新增-lg后缀区分 */
+    height: 8px; /* 新高度，可根据需求改为100px/150px等 */
+    overflow: hidden;
+    padding: 8px 8px;
+    border-radius: var(--border-radius);
+    border: 1px solid var(--gray-200);
+    background: linear-gradient(135deg, var(--gray-50), white);
+    font-family: "Consolas", "Microsoft YaHei", sans-serif;
+    font-size: 0.95rem;
+    line-height: 1.8;
+    white-space: pre-wrap;
+    word-break: break-all;
+    color: var(--gray-700);
+    transition: all 0.3s var(--transition);
+}
+
+/* 成功状态 */
+.response-content-lg.success {
+    border-color: var(--success);
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.05), white);
+    color: var(--success);
+}
+
+/* 失败状态 */
+.response-content-lg.error {
     border-color: var(--danger);
     background: linear-gradient(135deg, rgba(239, 68, 68, 0.05), white);
     color: var(--danger);
+}
+
+/* 加载中状态 */
+.response-content-lg.loading {
+    border: 2px dashed var(--gray-300);
+    background: linear-gradient(135deg, var(--gray-50), var(--gray-100));
+    color: var(--gray-500);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* 移动端适配（保持120px高度） */
+@media (max-width: 768px) {
+    .response-container-lg {
+        margin: 12px 0;
+    }
+    .response-content-lg {
+        height: 120px; /* 移动端同步新高度 */
+        padding: 12px 10px;
+        font-size: 0.9rem;
+    }
+}
+/* ========== 响应结果展示区样式结束 ========== */
+
+
+/* 补充：移动端适配（可选） */
+@media (max-width: 768px) {
+    .response-content {
+        height: 120px; /* 移动端高度稍小，适配屏幕 */
+        padding: 10px 8px;
+    }
+    .response-placeholder {
+        line-height: 100px; /* 120px - 10*2 = 100px，居中 */
+    }
+    .response-content.loading,
+    .response-content.success,
+    .response-content.error {
+        height: 120px; /* 移动端同步高度 */
+    }
 }
 /* ========== 响应结果展示区样式结束 ========== */
 
@@ -555,7 +674,7 @@ select.form-control {
     background: linear-gradient(135deg, var(--gray-50), white);
     border: 2px dashed var(--gray-300);
     border-radius: var(--border-radius);
-    padding: 30px 20px;
+    padding: 10px 10px;
     text-align: center;
     cursor: pointer;
     transition: var(--transition);
@@ -662,7 +781,7 @@ select.form-control {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     gap: 20px;
-    margin: 24px 0;
+    margin: 0px 0;
 }
 .data-cards-4 {
     display: grid;
@@ -674,7 +793,7 @@ select.form-control {
 .data-card {
     background: linear-gradient(135deg, var(--gray-50), white);
     border-radius: var(--border-radius);
-    padding: 24px;
+    padding: 10px;
     text-align: center;
     transition: var(--transition);
     border: 1px solid var(--gray-200);

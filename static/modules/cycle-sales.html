@@ -36,8 +36,7 @@
                 <i class="fas fa-folder-open"></i>
                 文件根目录
             </label>
-            <input type="text" class="form-control" value="E:\kucun" 
-                   id="cycle-sales-base-path" placeholder="请输入文件路径">
+            <input type="text" class="form-control" value="E:\kucun" id="cycle-sales-base-path" placeholder="请输入文件路径">
         </div>
 
         <div class="form-group">
@@ -45,8 +44,8 @@
                 <i class="fas fa-file"></i>
                 基准文件名
             </label>
-            <input type="text" class="form-control" value="kucun.xlsx" 
-                   id="cycle-sales-base-filename" placeholder="请输入文件名">
+            <input type="text" class="form-control" value="kucun.xlsx" id="cycle-sales-base-filename"
+                placeholder="请输入文件名">
         </div>
     </div>
 
@@ -120,19 +119,16 @@
             </select>
         </div>
     </div>
-    
-    <!-- 后端响应结果展示区 -->
-    <div class="response-container" id="cycle-sales-response-container">
+    <!-- 新增：操作结果展示区（初始空白） -->
+    <div class="response-container" id="stock-response-container">
         <label class="form-label">
             <i class="fas fa-terminal"></i>
-            执行结果
+            操作结果
         </label>
-        <!-- 初始为空，可通过JS动态填充内容 -->
-        <div class="response-content" id="cycle-sales-response-content">
-            <p class="response-placeholder" id="cycle-sales-response-placeholder">点击「操作」后，执行结果将展示在此处</p>
+        <div class="response-content" id="stock-response-content">
+            <!-- 初始空白，无占位文字 -->
         </div>
     </div>
-
     <button class="btn btn-primary" id="cycle-sales-statistic-btn">
         <i class="fas fa-chart-pie"></i>
         执行周期销量统计

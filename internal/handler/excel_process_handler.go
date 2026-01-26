@@ -40,7 +40,7 @@ func (h *ExcelHandler) ProcessExcel(c *gin.Context) {
 	var req service.ExcelProcessRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		logger.Errorf("JSON参数绑定失败：%v，原始请求体：%s", err, c.Request.Body)
-		response.Fail(c, http.StatusBadRequest, "参数错误："+err.Error())
+		response.BadRequest(c, "参数错误："+err.Error())
 		return
 	}
 
@@ -51,30 +51,32 @@ func (h *ExcelHandler) ProcessExcel(c *gin.Context) {
 	// 3. 核心参数校验
 	if req.BasePath == "" {
 		logger.Error("Excel处理失败：基础路径为空")
-		response.Fail(c, http.StatusBadRequest, "参数错误：基础路径不能为空")
+		response.BadRequest(c, "基础路径不能为空")
 		return
 	}
 	if req.MatchColumn == "" {
 		logger.Error("Excel处理失败：匹配列为空")
-		response.Fail(c, http.StatusBadRequest, "参数错误：匹配列不能为空")
+		response.BadRequest(c, "匹配列不能为空")
 		return
 	}
 	if len(req.KeepColumns) == 0 {
 		logger.Error("Excel处理失败：保留列为空")
-		response.Fail(c, http.StatusBadRequest, "参数错误：保留列不能为空（数组格式，如[\"A\",\"B\"]）")
+		response.BadRequest(c, "保留列不能为空（数组格式，如[\"A\",\"B\"]）")
 		return
 	}
 	if req.SumColumn == "" {
 		logger.Error("Excel处理失败：求和列为空")
-		response.Fail(c, http.StatusBadRequest, "参数错误：求和列不能为空")
+		response.BadRequest(c, "求和列不能为空")
 		return
 	}
 
-	// 4. 调用Service处理（Service已生成「月日+汇总表」文件名）
+	// 4. 调用Service处理
 	resp, excelFile, err := h.excelService.ProcessExcel(req)
 	if err != nil {
 		logger.Errorf("处理Excel失败：%v", err)
-		response.Fail(c, http.StatusInternalServerError, "处理Excel失败："+err.Error())
+
+		// 返回统一的错误信息，不包含详细的技术细节
+		response.InternalServerError(c, "操作失败，请检查数据后重新进行操作")
 		return
 	}
 
@@ -82,12 +84,12 @@ func (h *ExcelHandler) ProcessExcel(c *gin.Context) {
 	var buf bytes.Buffer
 	if err := excelFile.Write(&buf); err != nil {
 		logger.Errorf("生成Excel字节流失败：%v", err)
-		response.Fail(c, http.StatusInternalServerError, "生成Excel文件失败")
+		response.InternalServerError(c, "生成Excel文件失败")
 		return
 	}
 
-	// 6. 构造下载响应 - 修复中文文件名乱码问题（核心保留）
-	fileName := req.OutputFile // 直接使用Service层生成的文件名
+	// 6. 构造下载响应 - 修复中文文件名乱码问题
+	fileName := req.OutputFile
 
 	// 对文件名进行URL编码，防止乱码
 	encodedFileName := url.QueryEscape(fileName)
@@ -119,7 +121,7 @@ func (h *ExcelHandler) ProcessExcel(c *gin.Context) {
 		}
 	}()
 
-	// 9. 日志记录（同步Service层的文件名）
+	// 9. 日志记录
 	logger.Infof("Excel处理完成：文件=%s，总行数=%d，处理文件数=%d，跳过文件数=%d，分组数=%d",
 		fileName, resp.TotalCount, resp.Processed, resp.Skipped, len(resp.GroupedData))
 }
