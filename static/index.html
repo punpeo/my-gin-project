@@ -1,23 +1,24 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>智能业务处理中心</title>
-    
+
     <!-- 样式文件 -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="./css/style.css">
     <link rel="stylesheet" href="./css/style-modules.css">
-    
+
     <style>
         /* 加载状态样式 */
         .modules-container {
             position: relative;
             min-height: 400px;
         }
-        
+
         .loading-overlay {
             position: absolute;
             top: 0;
@@ -31,7 +32,7 @@
             z-index: 1000;
             backdrop-filter: blur(2px);
         }
-        
+
         .module-switch-indicator {
             position: fixed;
             top: 20px;
@@ -47,18 +48,19 @@
             animation: slideInRight 0.3s ease;
             display: none;
         }
-        
+
         @keyframes slideInRight {
             from {
                 opacity: 0;
                 transform: translateX(20px);
             }
+
             to {
                 opacity: 1;
                 transform: translateX(0);
             }
         }
-        
+
         /* 确保所有必要的样式都定义 */
         :root {
             --primary: #6366f1;
@@ -81,6 +83,7 @@
         }
     </style>
 </head>
+
 <body>
     <div class="main-container">
         <!-- 左侧导航栏 -->
@@ -92,7 +95,7 @@
                 </h2>
                 <p>一站式数据管理与智能分析平台</p>
             </div>
-            
+
             <ul class="nav-list">
                 <li class="nav-item active" data-target="excel-sales">
                     <a href="#" class="nav-link">
@@ -107,7 +110,7 @@
                         </div>
                     </a>
                 </li>
-                
+
                 <li class="nav-item" data-target="excel-fill">
                     <a href="#" class="nav-link">
                         <div class="nav-icon-wrapper">
@@ -121,7 +124,7 @@
                         </div>
                     </a>
                 </li>
-                
+
                 <li class="nav-item" data-target="stock">
                     <a href="#" class="nav-link">
                         <div class="nav-icon-wrapper">
@@ -135,7 +138,7 @@
                         </div>
                     </a>
                 </li>
-                
+
                 <li class="nav-item" data-target="order-summary">
                     <a href="#" class="nav-link">
                         <div class="nav-icon-wrapper">
@@ -149,7 +152,7 @@
                         </div>
                     </a>
                 </li>
-                
+
                 <li class="nav-item" data-target="shop-order">
                     <a href="#" class="nav-link">
                         <div class="nav-icon-wrapper">
@@ -163,7 +166,7 @@
                         </div>
                     </a>
                 </li>
-                
+
                 <li class="nav-item" data-target="cycle-sales">
                     <a href="#" class="nav-link">
                         <div class="nav-icon-wrapper">
@@ -177,9 +180,9 @@
                         </div>
                     </a>
                 </li>
-                
+
                 <div class="nav-divider"></div>
-                
+
                 <li class="nav-item" data-target="dev-module-1">
                     <a href="#" class="nav-link">
                         <div class="nav-icon-wrapper">
@@ -192,7 +195,7 @@
                         </div>
                     </a>
                 </li>
-                
+
                 <li class="nav-item" data-target="dev-module-2">
                     <a href="#" class="nav-link">
                         <div class="nav-icon-wrapper">
@@ -206,7 +209,7 @@
                     </a>
                 </li>
             </ul>
-            
+
             <div class="sidebar-footer">
                 <div class="system-status">
                     <div class="status-info">
@@ -223,10 +226,15 @@
             <div class="module-switch-indicator" id="moduleIndicator">
                 正在切换到: <span id="moduleName"></span>
             </div>
-            
+
             <div class="content-header">
                 <h1>智能业务处理中心</h1>
                 <p>一体化数据管理与智能分析平台，赋能您的业务决策与流程优化</p>
+                <!-- 圆形头像 -->
+                <div class="content-avatar">
+                    <!-- 替换为你的头像图片路径 -->
+                    <img src="images/chenxia.png" alt="用户头像">
+                </div>
             </div>
 
             <!-- 功能模块容器 -->
@@ -240,7 +248,7 @@
                         </div>
                     </div>
                 </div>
-                
+
                 <div class="loading-overlay" id="loadingOverlay" style="display: none;">
                     <div class="module-loading-content">
                         <i class="fas fa-spinner fa-spin"></i>
@@ -256,4 +264,5 @@
     <script src="js/main.js"></script>
     <script src="js/modules.js"></script>
 </body>
+
 </html>

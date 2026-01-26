@@ -338,6 +338,15 @@ body {
     margin-bottom: 24px;
     box-shadow: var(--shadow-md);
     border: 1px solid var(--gray-200);
+    /* 新增：Flex 布局，实现标题左、头像右 */
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+/* 新增：标题文本容器，防止头像挤压文字 */
+.content-header-text {
+    flex: 1;
 }
 
 .content-header h1 {
@@ -355,6 +364,32 @@ body {
     color: var(--gray-600);
     max-width: 800px;
     line-height: 1.6;
+}
+
+/* 新增：圆形头像样式（匹配整体设计风格） */
+.content-avatar {
+    width: 72px; /* 头像大小，适配整体布局 */
+    height: 72px;
+    border-radius: 50%; /* 圆形核心 */
+    overflow: hidden; /* 裁剪超出圆形的部分 */
+    border: 3px solid var(--gray-100); /* 边框匹配主题 */
+    box-shadow: var(--shadow-md); /* 阴影和整体一致 */
+    transition: var(--transition); /* 过渡动画统一 */
+    flex-shrink: 0; /* 防止头像被压缩 */
+    margin-left: 24px; /* 和文字区保持间距 */
+}
+
+/* 头像 hover 效果，和整体交互风格统一 */
+.content-avatar:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lg);
+    border-color: var(--primary-light);
+}
+
+.content-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover; /* 保持图片比例，不拉伸 */
 }
 
 /* 统一功能面板 */
@@ -930,6 +965,16 @@ select.form-control {
 @media (max-width: 768px) {
     .content-header {
         padding: 24px 20px;
+        flex-direction: column; /* 移动端头像换行到下方 */
+        align-items: flex-start;
+        gap: 16px;
+    }
+    
+    .content-avatar {
+        width: 56px;
+        height: 56px;
+        margin-left: 0; /* 移动端取消左间距 */
+        align-self: center; /* 头像居中显示 */
     }
     
     .content-header h1 {
