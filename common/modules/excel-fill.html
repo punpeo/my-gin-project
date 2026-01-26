@@ -1,25 +1,10 @@
-<div class="panel-header">
-    <div class="panel-title">
-        <div class="panel-icon">
-            <i class="fas fa-file-excel"></i>
-        </div>
-        <div>
-            <h3>Excel数据匹配填充</h3>
-            <p class="panel-subtitle">快速匹配和填充Excel表格数据</p>
-            <div class="module-badge">
-                <i class="fas fa-check-circle"></i>
-                独立模块
-            </div>
-        </div>
-    </div>
-</div>
 <div class="form-grid">
     <div class="form-group">
         <label class="form-label">
             <i class="fas fa-folder-open"></i>
             文件根目录
         </label>
-        <input type="text" class="form-control" value="E:\Xyq-Works\Excel_Fill" placeholder="请输入文件路径">
+        <input type="text" class="form-control" value="E:\Xyq-Works\Excel_Fill" id="excel-fill-root-dir" placeholder="请输入文件路径">
     </div>
     
     <div class="form-row">
@@ -28,14 +13,14 @@
                 <i class="fas fa-search"></i>
                 待输入表匹配列
             </label>
-            <input type="text" class="form-control" placeholder="例如：A" value="A">
+            <input type="text" class="form-control" placeholder="例如：A" value="A" id="excel-fill-source-match-col">
         </div>
         <div class="form-group">
             <label class="form-label">
                 <i class="fas fa-edit"></i>
                 待输入表填充列
             </label>
-            <input type="text" class="form-control" placeholder="例如：B" value="B">
+            <input type="text" class="form-control" placeholder="例如：B" value="B" id="excel-fill-source-fill-col">
         </div>
     </div>
     
@@ -45,30 +30,29 @@
                 <i class="fas fa-columns"></i>
                 目标表匹配列
             </label>
-            <input type="text" class="form-control" placeholder="例如：A" value="A">
+            <input type="text" class="form-control" placeholder="例如：A" value="A" id="excel-fill-target-match-col">
         </div>
         <div class="form-group">
             <label class="form-label">
                 <i class="fas fa-database"></i>
                 目标表取值列
             </label>
-            <input type="text" class="form-control" placeholder="例如：C" value="C">
+            <input type="text" class="form-control" placeholder="例如：C" value="C" id="excel-fill-target-value-col">
         </div>
     </div>
 
     <!-- 新增：后端响应结果展示区 -->
-    <div class="response-container" id="responseContainer">
+    <div class="response-container" id="excel-fill-response-container">
         <label class="form-label">
             <i class="fas fa-terminal"></i>
             执行结果
         </label>
-        <!-- 初始为空，可通过JS动态填充内容 -->
-        <div class="response-content">
-            <p class="response-placeholder">点击「开始匹配填充」后，执行结果将展示在此处</p>
+        <div class="response-content" id="excel-fill-response-content">
+            <p class="response-placeholder" id="excel-fill-response-placeholder">点击「开始匹配填充」后，执行结果将展示在此处</p>
         </div>
     </div>
     
-    <button class="btn btn-primary">
+    <button class="btn btn-primary" id="excel-fill-process-btn">
         <i class="fas fa-play-circle"></i>
         开始匹配填充
     </button>

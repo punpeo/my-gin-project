@@ -57,7 +57,8 @@ func SetupRouter() *gin.Engine {
 		v1.GET("/order/download-template", handler.DownloadOrderTemplate)
 		v1.POST("/order/upload-process", handler.UploadAndProcessOrderExcel)
 		// 新增：店铺订单统计接口
-		v1.POST("/shop-order/statistic", handler.StatShopOrder)
+		v1.POST("/shop-order/statistic-by-path", handler.StatShopOrderByPath)
+		v1.POST("/shop-order/statistic-by-upload", handler.StatShopOrderByUpload)
 		// 新增：产品周期销量统计接口
 		v1.POST("/cycle-sales/statistic", handler.CycleSalesStatisticHandler)
 

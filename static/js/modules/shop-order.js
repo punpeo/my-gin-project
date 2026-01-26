@@ -22,7 +22,7 @@ const ShopOrderModule = {
                 shopOrderResult.style.display = 'none';
 
                 try {
-                    const res = await CommonUtils.postRequest('/api/v1/shop-order/statistic', {
+                    const res = await CommonUtils.postRequest('/api/v1/shop-order/statistic-by-path', {
                         base_path: basePath
                     });
 

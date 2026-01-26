@@ -13,13 +13,14 @@
         </div>
     </div>
 </div>
+
 <div class="form-grid">
     <div class="form-group">
         <label class="form-label">
             <i class="fas fa-user-tie"></i>
             负责人
         </label>
-        <select class="form-control">
+        <select class="form-control" id="order-person-select">
             <option value="">默认（不指定）</option>
             <option value="曾庆隆">曾庆隆</option>
             <option value="唐剑雨">唐剑雨</option>
@@ -34,39 +35,38 @@
             <i class="fas fa-cloud-arrow-up"></i>
             上传文件
         </label>
-        <div class="file-upload-area">
-            <i class="fas fa-cloud-upload-alt"></i>
-            <p>点击或拖拽文件上传</p>
-            <span>支持 .xlsx, .xls 格式</span>
+        <div class="file-upload-area" id="order-file-upload-area">
+            <i class="fas fa-cloud-upload-alt" id="order-upload-icon"></i>
+            <p id="order-upload-text">点击或拖拽文件上传</p>
+            <span id="order-upload-format-hint">支持 .xlsx, .xls 格式</span>
         </div>
     </div>
 
     <div class="data-cards-4">
         <div class="data-card">
-            <div class="data-value">48</div>
+            <div class="data-value" id="order-shop-count">0</div>
             <div class="data-label">店铺数量</div>
         </div>
         <div class="data-card">
-            <div class="data-value">1,204</div>
+            <div class="data-value" id="order-total-order">0</div>
             <div class="data-label">总订单数</div>
         </div>
         <div class="data-card">
-            <div class="data-value">¥58,430</div>
+            <div class="data-value" id="order-total-amount">0</div>
             <div class="data-label">总金额</div>
         </div>
-         <div class="data-card">
-            <div class="data-value">0</div>
+        <div class="data-card">
+            <div class="data-value" id="order-duplicate-order">0</div>
             <div class="data-label">重复订单</div>
         </div>
     </div>
 
-
     <div class="btn-group-2">
-        <button class="btn btn-secondary">
+        <button class="btn btn-secondary" id="order-download-template-btn">
             <i class="fas fa-cogs"></i>
             下载模板文件
         </button>
-        <button class="btn btn-primary">
+        <button class="btn btn-primary" id="order-upload-process-btn">
             <i class="fas fa-rocket"></i>
             上传并处理数据
         </button>
