@@ -93,7 +93,11 @@ const StockModule = {
             
             // 响应容器
             responseContainer: container.querySelector('#stock-response-container'),
-            responseContent: container.querySelector('#stock-response-content')
+            responseContent: container.querySelector('#stock-response-content'),
+            
+            // 统计数据卡片（新增缓存，避免重复查询DOM）
+            productCountCard: container.querySelector('#product-count-card .data-value'),
+            totalStockCard: container.querySelector('#total-stock-card .data-value')
         };
     },
     
@@ -274,7 +278,7 @@ const StockModule = {
     },
     
     /**
-     * 通用API调用函数
+     * 通用API调用函数（适配后端统一返回HTTP 200）
      * @param {string} apiPath - API地址
      * @param {object} requestData - 请求参数
      * @param {HTMLElement} button - 操作按钮
@@ -282,7 +286,6 @@ const StockModule = {
      * @returns {object} 后端响应数据
      */
     callAPI: async function(apiPath, requestData, button, loadingText) {
-        // 显示按钮加载状态
         this.showButtonLoading(button, loadingText);
         
         try {
@@ -294,79 +297,147 @@ const StockModule = {
                 body: JSON.stringify(requestData)
             });
             
-            // 解析响应数据
-            const responseData = await response.json();
+            // 仅解析响应，后端已保证HTTP 200
+            let responseData;
+            try {
+                responseData = await response.json();
+            } catch (e) {
+                // 解析失败时构造标准化错误
+                responseData = {
+                    code: 500,
+                    msg: `响应解析失败：${e.message}`,
+                    data: null
+                };
+            }
             
-            // 检查业务状态码
-            if (responseData.code !== 20000 && responseData.code !== 200) {
-                // 业务错误，使用后端返回的错误信息
-                throw new Error(responseData.msg || `业务处理失败（错误码：${responseData.code}）`);
+            // 仅判断业务码，无需判断HTTP状态
+            if (responseData.code !== 0) {
+                const errorMsg = responseData.msg || `操作失败（错误码：${responseData.code}）`;
+                throw new Error(errorMsg);
             }
             
             return responseData;
         } catch (error) {
-            throw new Error(error.message || 'API调用失败');
+            // 仅处理网络错误（如断网、跨域）
+            if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
+                throw new Error('网络连接失败，请检查服务器是否在线');
+            } else {
+                throw new Error(error.message);
+            }
         } finally {
-            // 恢复按钮状态
             this.hideButtonLoading(button);
-        }
-    },
-
-    /**
-     * 新增：更新统计数据显示
-     */
-    updateStatisticsDisplay: function(productCount, totalStock) {
-        // 产品数量显示
-        const productCard = document.getElementById('product-count-card');
-        if (productCard) {
-            const productValueEl = productCard.querySelector('.data-value');
-            if (productValueEl) {
-                productValueEl.textContent = productCount.toLocaleString();
-                productCard.classList.add('is-updated');
-            }
-        }
-
-        // 总库存显示
-        const stockCard = document.getElementById('total-stock-card');
-        if (stockCard) {
-            const stockValueEl = stockCard.querySelector('.data-value');
-            if (stockValueEl) {
-                stockValueEl.textContent = totalStock.toLocaleString('en-US', { 
-                    minimumFractionDigits: 2, 
-                    maximumFractionDigits: 2 
-                });
-                stockCard.classList.add('is-updated');
-            }
-        }
-
-        // 添加动态样式
-        if (productCard && productCount > 1000) {
-            productCard.classList.add('high-value');
-        }
-        if (stockCard && totalStock > 100000) {
-            stockCard.classList.add('high-value');
-        }
-    },
-
-    /**
-     * 处理库存统计响应
-     */
-    handleStatisticsResponse: async function(response) {
-        try {
-            const responseData = await response.json();
-            // 调用统计数据更新展示函数
-            this.updateStatisticsDisplay(
-                responseData.product_count || 0,
-                responseData.total_stock || 0
-            );
-            this.showSuccess('库存统计完成');
-        } catch (error) {
-            this.showError(`处理统计响应失败: ${error.message}`);
         }
     },
     
     /**
-     * 处理库存统计
+     * 新增：更新统计数据显示（优化版，使用缓存的DOM元素）
+     */
+    updateStatisticsDisplay: function(productCount, totalStock) {
+        // 产品数量显示（使用缓存的DOM元素，提升性能）
+        if (this.elements.productCountCard) {
+            this.elements.productCountCard.textContent = Number(productCount).toLocaleString();
+            // 添加强调动画
+            this.elements.productCountCard.parentElement.classList.add('is-updated');
+            setTimeout(() => {
+                this.elements.productCountCard.parentElement.classList.remove('is-updated');
+            }, 1500);
+        }
+
+        // 总库存显示（保留两位小数，格式化数字）
+        if (this.elements.totalStockCard) {
+            this.elements.totalStockCard.textContent = Number(totalStock).toLocaleString('en-US', { 
+                minimumFractionDigits: 2, 
+                maximumFractionDigits: 2 
+            });
+            // 添加强调动画
+            this.elements.totalStockCard.parentElement.classList.add('is-updated');
+            setTimeout(() => {
+                this.elements.totalStockCard.parentElement.classList.remove('is-updated');
+            }, 1500);
+        }
+
+        // 高值样式标记
+        if (this.elements.productCountCard && productCount > 1000) {
+            this.elements.productCountCard.parentElement.classList.add('high-value');
+        } else if (this.elements.productCountCard) {
+            this.elements.productCountCard.parentElement.classList.remove('high-value');
+        }
+        
+        if (this.elements.totalStockCard && totalStock > 100000) {
+            this.elements.totalStockCard.parentElement.classList.add('high-value');
+        } else if (this.elements.totalStockCard) {
+            this.elements.totalStockCard.parentElement.classList.remove('high-value');
+        }
+    },
+
+    /**
+     * 处理base64内容并下载文件（核心新增功能）
+     * @param {string} base64Content - 后端返回的base64编码内容
+     * @param {string} filename - 下载的文件名
+     */
+    downloadFileFromBase64: function(base64Content, filename = 'kucun.xlsx') {
+        try {
+            // 移除base64前缀（如果有的话）
+            const cleanBase64 = base64Content.replace(/^data:.+;base64,/, '');
+            
+            // 将base64转换为二进制数据
+            const binaryString = window.atob(cleanBase64);
+            const binaryLen = binaryString.length;
+            const bytes = new Uint8Array(binaryLen);
+            
+            for (let i = 0; i < binaryLen; i++) {
+                bytes[i] = binaryString.charCodeAt(i);
+            }
+            
+            // 创建Blob对象
+            const blob = new Blob([bytes], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+            
+            // 创建下载链接并触发下载
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            
+            // 清理资源
+            setTimeout(() => {
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(url);
+            }, 100);
+            
+            return true;
+        } catch (error) {
+            console.error('文件下载失败：', error);
+            throw new Error(`文件下载失败：${error.message}`);
+        }
+    },
+    
+    /**
+     * 处理库存统计响应（完全重构，适配新的后端响应格式）
+     */
+    handleStatisticsResponse: function(responseData) {
+        try {
+            // 1. 提取统计数据并更新页面显示
+            const { product_count = 0, total_stock = 0, column_name = '' } = responseData.data || {};
+            this.updateStatisticsDisplay(product_count, total_stock);
+            
+            // 2. 处理base64文件下载
+            if (responseData.data?.base64_content) {
+                // 使用列名或默认名作为文件名
+                const filename = `${column_name || 'kucun'}.xlsx`;
+                this.downloadFileFromBase64(responseData.data.base64_content, filename);
+            }
+            
+            // 3. 返回成功消息
+            return responseData.data?.message || '库存统计完成';
+        } catch (error) {
+            throw new Error(`处理统计响应失败: ${error.message}`);
+        }
+    },
+    
+    /**
+     * 处理库存统计（重构核心逻辑）
      */
     handleStatistics: async function(e) {
         e.preventDefault();
@@ -388,91 +459,25 @@ const StockModule = {
             // 显示处理中状态
             this.showProcessing('正在执行库存统计...');
             
-            // 调用库存统计API
-            const response = await this.fetchStatistics(requestData);
+            // 调用库存统计API（使用通用callAPI，无需单独fetch）
+            const responseData = await this.callAPI(
+                this.config.api.statistics,
+                requestData,
+                this.elements.statisticsBtn,
+                '正在统计...'
+            );
             
-            // 处理统计响应（新增调用）
-            await this.handleStatisticsResponse(response.clone());
-            
-            // 处理文件下载
-            const filename = await this.handleExcelFileDownload(response);
+            // 处理统计响应（包含数据展示和文件下载）
+            const successMsg = this.handleStatisticsResponse(responseData);
             
             // 显示成功消息
-            this.showSuccess(`库存统计完成，结果文件已下载: ${filename}`);
+            this.showSuccess(successMsg);
             
         } catch (error) {
             this.showError(`库存统计失败: ${error.message}`);
         } finally {
             this.setProcessing(false);
         }
-    },
-    
-    /**
-     * 调用库存统计API（特殊处理，不通过callAPI）
-     */
-    fetchStatistics: async function(requestData) {
-        this.showButtonLoading(this.elements.statisticsBtn, '正在统计...');
-        
-        try {
-            const response = await fetch(this.config.api.statistics, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(requestData)
-            });
-            
-            // 如果响应不成功，尝试解析错误响应
-            if (!response.ok) {
-                // 尝试解析错误响应
-                try {
-                    const errorData = await response.json();
-                    // 优先使用后端返回的具体错误信息
-                    throw new Error(errorData.msg || `请求失败（${response.status}）`);
-                } catch (e) {
-                    // 如果无法解析为JSON，则使用状态码
-                    throw new Error(`请求失败（${response.status}）`);
-                }
-            }
-            
-            return response;
-        } catch (error) {
-            if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
-                throw new Error('网络连接失败，请检查网络连接');
-            }
-            throw error;
-        } finally {
-            this.hideButtonLoading(this.elements.statisticsBtn);
-        }
-    },
-    
-    /**
-     * 处理Excel文件下载
-     */
-    handleExcelFileDownload: async function(response) {
-        // 获取文件名
-        const contentDisposition = response.headers.get('content-disposition');
-        let filename = 'kucun.xlsx';
-        
-        if (contentDisposition) {
-            const filenameMatch = contentDisposition.match(/filename="(.+)"/);
-            if (filenameMatch && filenameMatch[1]) {
-                filename = decodeURIComponent(filenameMatch[1]);
-            }
-        }
-        
-        // 创建Blob并下载
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        window.URL.revokeObjectURL(url);
-        
-        return filename;
     },
     
     /**
@@ -580,8 +585,8 @@ const StockModule = {
             
             // 拼接成功消息
             let successMsg = responseData.msg || '清理库存文件成功';
-            if (responseData.data && responseData.data.cleanup_count !== undefined) {
-                successMsg += `，共清理 ${responseData.data.cleanup_count} 个文件`;
+            if (responseData.data && responseData.data.cleanup !== undefined) {
+                successMsg += `，共清理 ${responseData.data.cleanup} 个文件`;
             }
             this.showSuccess(successMsg);
             
@@ -851,6 +856,10 @@ const StockModule = {
         
         // 重置响应容器为空白
         this.initResponseContainer();
+        
+        // 重置统计数据显示
+        if (this.elements.productCountCard) this.elements.productCountCard.textContent = '0';
+        if (this.elements.totalStockCard) this.elements.totalStockCard.textContent = '0';
         
         this.showTemporaryInfo('模块已重置');
     },

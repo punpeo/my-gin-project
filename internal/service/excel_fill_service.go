@@ -1,6 +1,7 @@
 package service
 
 import (
+	"encoding/base64"
 	"fmt"
 	"go-gin/pkg/logger"
 	"os"
@@ -29,6 +30,7 @@ type ExcelFillResponse struct {
 	EmptyRows  int    `json:"empty_rows"`  // 跳过的空行数
 	OutputFile string `json:"output_file"` // 输出文件名
 	FileSize   int64  `json:"file_size"`   // 文件大小（字节）
+	Base64Data string `json:"base64_data"` // 文件Base64编码
 }
 
 // ExcelFillService 填充服务接口
@@ -377,8 +379,14 @@ func (s *excelFillService) ProcessFill(req ExcelFillRequest) (*ExcelFillResponse
 	// 11. 获取文件信息
 	fileInfo, err := os.Stat(sourcePath)
 	if err != nil {
-		logger.Warnf("获取文件信息失败: %v", err)
+		return nil, fmt.Errorf("获取文件信息失败: %v", err)
 	}
+	//12.读取更新后的文件并进行Base64编码
+	excelContent, err := os.ReadFile(sourcePath)
+	if err != nil {
+		return nil, fmt.Errorf("读取更新后的文件失败: %v", err)
+	}
+	base64Data := base64.StdEncoding.EncodeToString(excelContent)
 
 	// 12. 构建响应
 	resp := &ExcelFillResponse{
@@ -388,6 +396,7 @@ func (s *excelFillService) ProcessFill(req ExcelFillRequest) (*ExcelFillResponse
 		EmptyRows:  emptyRows,
 		OutputFile: "待输入表_已填充.xlsx",
 		FileSize:   fileInfo.Size(),
+		Base64Data: base64Data,
 	}
 
 	logger.Infof("Excel填充完成：%s，文件大小：%d字节", resp.Message, resp.FileSize)

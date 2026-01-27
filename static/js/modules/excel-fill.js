@@ -56,10 +56,14 @@ const ExcelFillModule = {
             targetValueColInput: container.querySelector('#excel-fill-target-value-col'),
             processBtn: container.querySelector('#excel-fill-process-btn'),
             
-            // 响应容器
+            // 数据卡片
+            totalRows: container.querySelector('#excel-fill-total-rows'),
+            filledRows: container.querySelector('#excel-fill-filled-rows'),
+            emptyRows: container.querySelector('#excel-fill-empty-rows'),
+            
+            // 响应容器（修复ID匹配）
             responseContainer: container.querySelector('#excel-fill-response-container'),
-            responseContent: container.querySelector('#excel-fill-response-content'),
-            responsePlaceholder: container.querySelector('#excel-fill-response-placeholder')
+            responseContent: container.querySelector('#excel-fill-response-content')
         };
     },
     
@@ -69,31 +73,24 @@ const ExcelFillModule = {
     bindEvents: function() {
         const el = this.elements;
         
-        // 处理按钮点击
+        // 处理按钮点击（修复this指向）
         if (el.processBtn) {
             el.processBtn.addEventListener('click', (e) => this.handleProcess(e));
         }
         
         // 输入框实时验证
-        if (el.rootDirInput) {
-            el.rootDirInput.addEventListener('input', () => this.validateInputs());
-        }
-        
-        if (el.sourceMatchColInput) {
-            el.sourceMatchColInput.addEventListener('input', () => this.validateColumnInput(el.sourceMatchColInput));
-        }
-        
-        if (el.sourceFillColInput) {
-            el.sourceFillColInput.addEventListener('input', () => this.validateColumnInput(el.sourceFillColInput));
-        }
-        
-        if (el.targetMatchColInput) {
-            el.targetMatchColInput.addEventListener('input', () => this.validateColumnInput(el.targetMatchColInput));
-        }
-        
-        if (el.targetValueColInput) {
-            el.targetValueColInput.addEventListener('input', () => this.validateColumnInput(el.targetValueColInput));
-        }
+        [el.rootDirInput, el.sourceMatchColInput, el.sourceFillColInput, 
+         el.targetMatchColInput, el.targetValueColInput].forEach(input => {
+            if (input) {
+                input.addEventListener('input', () => {
+                    if (input.id.includes('col')) {
+                        this.validateColumnInput(input);
+                    } else {
+                        this.validateInputs();
+                    }
+                });
+            }
+        });
     },
     
     /**
@@ -121,25 +118,15 @@ const ExcelFillModule = {
             el.rootDirInput.value = 'E:\\Xyq-Works\\Excel_Fill';
         }
         
-        if (el.sourceMatchColInput && !el.sourceMatchColInput.value) {
-            el.sourceMatchColInput.value = 'A';
-        }
-        
-        if (el.sourceFillColInput && !el.sourceFillColInput.value) {
-            el.sourceFillColInput.value = 'B';
-        }
-        
-        if (el.targetMatchColInput && !el.targetMatchColInput.value) {
-            el.targetMatchColInput.value = 'A';
-        }
-        
-        if (el.targetValueColInput && !el.targetValueColInput.value) {
-            el.targetValueColInput.value = 'C';
-        }
+        [el.sourceMatchColInput, el.sourceFillColInput, el.targetMatchColInput, el.targetValueColInput].forEach(input => {
+            if (input && !input.value) {
+                input.value = input.id.includes('match') ? 'A' : (input.id.includes('fill') ? 'B' : 'C');
+            }
+        });
     },
     
     /**
-     * 处理Excel数据匹配填充
+     * 处理Excel数据匹配填充（核心调整：适配后端200+业务码响应）
      */
     handleProcess: async function(e) {
         e.preventDefault();
@@ -148,7 +135,7 @@ const ExcelFillModule = {
         
         // 验证输入
         if (!this.validateInputs()) {
-            this.showError('请填写所有必填项');
+            this.showError('请填写所有必填项并确保格式正确');
             return;
         }
         
@@ -161,11 +148,11 @@ const ExcelFillModule = {
             // 显示处理中状态
             this.showProcessing('正在匹配填充Excel数据...');
             
-            // 调用API
-            const response = await this.callFillAPI(requestData);
+            // 调用API（适配新的响应格式）
+            const responseData = await this.callFillAPI(requestData);
             
-            // 处理响应
-            await this.handleResponse(response);
+            // 处理响应（解析业务数据+更新UI）
+            this.handleResponse(responseData);
             
         } catch (error) {
             console.error('处理失败:', error);
@@ -183,18 +170,19 @@ const ExcelFillModule = {
         
         return {
             root_dir: el.rootDirInput?.value.trim() || '',
-            source_match_col: el.sourceMatchColInput?.value.trim() || 'A',
-            source_fill_col: el.sourceFillColInput?.value.trim() || 'B',
-            target_match_col: el.targetMatchColInput?.value.trim() || 'A',
-            target_value_col: el.targetValueColInput?.value.trim() || 'C'
+            source_match_col: el.sourceMatchColInput?.value.trim().toUpperCase() || 'A',
+            source_fill_col: el.sourceFillColInput?.value.trim().toUpperCase() || 'B',
+            target_match_col: el.targetMatchColInput?.value.trim().toUpperCase() || 'A',
+            target_value_col: el.targetValueColInput?.value.trim().toUpperCase() || 'C'
         };
     },
     
     /**
-     * 调用填充API
+     * 调用填充API（核心调整：适配后端统一返回200 + 业务码）
      */
     callFillAPI: async function(requestData) {
-        this.showButtonLoading(this.elements.processBtn, '正在处理...');
+        const el = this.elements;
+        this.showButtonLoading(el.processBtn, '正在处理...');
         
         try {
             // 使用FormData格式发送，与后端Handler的c.PostForm()匹配
@@ -211,70 +199,76 @@ const ExcelFillModule = {
                 // 不设置Content-Type，浏览器会自动设置multipart/form-data
             });
             
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => ({}));
-                throw new Error(errorData.msg || `HTTP ${response.status}`);
+            // 无论HTTP状态码如何，都解析JSON（后端已统一返回200）
+            const responseData = await response.json();
+            
+            // 判断业务码
+            if (responseData.code !== 0) {
+                throw new Error(responseData.msg || `业务错误码: ${responseData.code}`);
             }
             
-            return response;
+            return responseData.data; // 返回真正的业务数据
         } catch (error) {
             throw new Error(`API调用失败: ${error.message}`);
         } finally {
-            this.hideButtonLoading(this.elements.processBtn, '<i class="fas fa-play-circle"></i> 开始匹配填充');
+            this.hideButtonLoading(el.processBtn);
         }
     },
     
     /**
-     * 处理API响应
+     * 处理API响应（核心调整：解析Base64并下载文件）
      */
-    handleResponse: async function(response) {
-        const contentType = response.headers.get('content-type');
+    handleResponse: function(responseData) {
+        const el = this.elements;
         
-        // 检查是否为错误响应
-        if (contentType && contentType.includes('application/json')) {
-            const errorData = await response.json();
-            throw new Error(errorData.msg || `错误码: ${errorData.code}`);
+        // 更新数据卡片
+        if (el.totalRows) el.totalRows.textContent = responseData.TotalRows || 0;
+        if (el.filledRows) el.filledRows.textContent = responseData.FilledRows || 0;
+        if (el.emptyRows) el.emptyRows.textContent = responseData.EmptyRows || 0;
+        
+        // 处理Base64文件下载（后端返回Base64编码，而非直接返回文件）
+        if (responseData.Base64Data) {
+            this.downloadExcelFromBase64(responseData.Base64Data, responseData.OutputFile || '待输入表_已填充.xlsx');
         }
         
-        // 检查是否为Excel文件
-        if (contentType && contentType.includes('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')) {
-            // 处理Excel文件下载
-            const filename = await this.handleExcelFileDownload(response);
-            
-            // 显示成功消息
-            this.showSuccess(`处理完成，结果已下载: ${filename}`);
-        } else {
-            throw new Error('未知的响应类型');
-        }
+        // 显示成功消息
+        this.showSuccess(responseData.Message || '处理完成！');
     },
     
     /**
-     * 处理Excel文件下载
+     * 从Base64数据下载Excel文件
      */
-    handleExcelFileDownload: async function(response) {
-        // 获取文件名
-        const contentDisposition = response.headers.get('content-disposition');
-        let filename = '结果表.xlsx';
-        
-        if (contentDisposition) {
-            const filenameMatch = contentDisposition.match(/filename="(.+)"/);
-            if (filenameMatch && filenameMatch[1]) {
-                filename = decodeURIComponent(filenameMatch[1]);
+    downloadExcelFromBase64: function(base64Data, filename) {
+        try {
+            // 解码Base64数据
+            const byteCharacters = atob(base64Data);
+            const byteNumbers = new Array(byteCharacters.length);
+            for (let i = 0; i < byteCharacters.length; i++) {
+                byteNumbers[i] = byteCharacters.charCodeAt(i);
             }
+            const byteArray = new Uint8Array(byteNumbers);
+            const blob = new Blob([byteArray], { 
+                type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
+            });
+            
+            // 创建下载链接
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            
+            // 清理资源
+            setTimeout(() => {
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(url);
+            }, 100);
+            
+            console.log(`文件已下载: ${filename}`);
+        } catch (error) {
+            throw new Error(`文件下载失败: ${error.message}`);
         }
-        
-        // 创建Blob并下载
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        window.URL.revokeObjectURL(url);
-        
-        return filename;
     },
     
     /**
@@ -292,47 +286,34 @@ const ExcelFillModule = {
             this.markValid(el.rootDirInput);
         }
         
-        // 验证待输入表匹配列
-        if (el.sourceMatchColInput && !el.sourceMatchColInput.value.trim()) {
-            this.markInvalid(el.sourceMatchColInput, '请输入待输入表匹配列');
-            isValid = false;
-        } else if (!this.validateColumnLetter(el.sourceMatchColInput)) {
-            isValid = false;
-        } else {
-            this.markValid(el.sourceMatchColInput);
-        }
-        
-        // 验证待输入表填充列
-        if (el.sourceFillColInput && !el.sourceFillColInput.value.trim()) {
-            this.markInvalid(el.sourceFillColInput, '请输入待输入表填充列');
-            isValid = false;
-        } else if (!this.validateColumnLetter(el.sourceFillColInput)) {
-            isValid = false;
-        } else {
-            this.markValid(el.sourceFillColInput);
-        }
-        
-        // 验证目标表匹配列
-        if (el.targetMatchColInput && !el.targetMatchColInput.value.trim()) {
-            this.markInvalid(el.targetMatchColInput, '请输入目标表匹配列');
-            isValid = false;
-        } else if (!this.validateColumnLetter(el.targetMatchColInput)) {
-            isValid = false;
-        } else {
-            this.markValid(el.targetMatchColInput);
-        }
-        
-        // 验证目标表取值列
-        if (el.targetValueColInput && !el.targetValueColInput.value.trim()) {
-            this.markInvalid(el.targetValueColInput, '请输入目标表取值列');
-            isValid = false;
-        } else if (!this.validateColumnLetter(el.targetValueColInput)) {
-            isValid = false;
-        } else {
-            this.markValid(el.targetValueColInput);
-        }
+        // 验证列输入
+        [el.sourceMatchColInput, el.sourceFillColInput, el.targetMatchColInput, el.targetValueColInput].forEach(input => {
+            if (input) {
+                if (!input.value.trim()) {
+                    this.markInvalid(input, `请输入${this.getInputLabel(input)}`);
+                    isValid = false;
+                } else if (!this.validateColumnLetter(input)) {
+                    isValid = false;
+                } else {
+                    this.markValid(input);
+                }
+            }
+        });
         
         return isValid;
+    },
+    
+    /**
+     * 获取输入框标签文本（辅助验证提示）
+     */
+    getInputLabel: function(input) {
+        if (!input) return '列名';
+        const id = input.id;
+        if (id.includes('source-match')) return '待输入表匹配列';
+        if (id.includes('source-fill')) return '待输入表填充列';
+        if (id.includes('target-match')) return '目标表匹配列';
+        if (id.includes('target-value')) return '目标表取值列';
+        return '列名';
     },
     
     /**
@@ -362,19 +343,10 @@ const ExcelFillModule = {
     validateColumnInput: function(inputElement) {
         if (!inputElement) return true;
         
-        const value = inputElement.value.trim();
-        if (!value) return false;
+        // 自动转为大写
+        inputElement.value = inputElement.value.trim().toUpperCase();
         
-        // 验证格式：单字母或多字母
-        const isValid = /^[A-Z]+$/i.test(value);
-        
-        if (!isValid) {
-            this.markInvalid(inputElement, '格式错误，请输入字母（如A、B、C或AA、AB等）');
-            return false;
-        }
-        
-        this.markValid(inputElement);
-        return true;
+        return this.validateColumnLetter(inputElement);
     },
     
     /**
@@ -470,7 +442,7 @@ const ExcelFillModule = {
                 <div class="message-text">
                     <h5>处理失败</h5>
                     <p>${message}</p>
-                    <button class="btn btn-sm btn-outline-primary mt-2" onclick="ExcelFillModule.retry()">
+                    <button class="btn btn-sm btn-outline-primary mt-2" onclick="ExcelFillModule.handleProcess(event)">
                         <i class="fas fa-redo"></i> 重试
                     </button>
                 </div>
@@ -487,7 +459,7 @@ const ExcelFillModule = {
         const originalText = button.innerHTML;
         button.setAttribute('data-original-text', originalText);
         button.innerHTML = `
-            <i class="fas fa-spinner fa-spin"></i> ${loadingText}
+            <i class="fas fa-spinner fa-spin"></i> ${loadingText || '正在处理...'}
         `;
         button.disabled = true;
     },
@@ -495,28 +467,15 @@ const ExcelFillModule = {
     /**
      * 隐藏按钮加载状态
      */
-    hideButtonLoading: function(button, defaultText) {
+    hideButtonLoading: function(button) {
         if (!button) return;
         
         const originalText = button.getAttribute('data-original-text');
         if (originalText) {
             button.innerHTML = originalText;
-        } else if (defaultText) {
-            button.innerHTML = defaultText;
+            button.removeAttribute('data-original-text');
         }
         button.disabled = false;
-    },
-    
-    /**
-     * 重试
-     */
-    retry: function() {
-        const el = this.elements;
-        if (el.responseContent) {
-            el.responseContent.innerHTML = `
-                <p class="response-placeholder">点击「开始匹配填充」后，执行结果将展示在此处</p>
-            `;
-        }
     },
     
     /**
@@ -545,10 +504,16 @@ const ExcelFillModule = {
         
         // 重置输入框
         if (el.rootDirInput) el.rootDirInput.value = 'E:\\Xyq-Works\\Excel_Fill';
-        if (el.sourceMatchColInput) el.sourceMatchColInput.value = 'A';
-        if (el.sourceFillColInput) el.sourceFillColInput.value = 'B';
-        if (el.targetMatchColInput) el.targetMatchColInput.value = 'A';
-        if (el.targetValueColInput) el.targetValueColInput.value = 'C';
+        [el.sourceMatchColInput, el.sourceFillColInput, el.targetMatchColInput, el.targetValueColInput].forEach(input => {
+            if (input) {
+                input.value = input.id.includes('match') ? 'A' : (input.id.includes('fill') ? 'B' : 'C');
+            }
+        });
+        
+        // 重置数据卡片
+        [el.totalRows, el.filledRows, el.emptyRows].forEach(card => {
+            if (card) card.textContent = '0';
+        });
         
         // 重置响应容器
         if (el.responseContent) {
@@ -578,7 +543,7 @@ const ExcelFillModule = {
             </div>
         `;
         
-        // 3秒后隐藏
+        // 3秒后恢复占位
         setTimeout(() => {
             if (el.responseContent) {
                 el.responseContent.innerHTML = `
