@@ -1,6 +1,7 @@
 package service
 
 import (
+	"encoding/base64"
 	"fmt"
 	"go-gin/config"
 	"os"
@@ -44,11 +45,12 @@ type CleanupFileRequest struct {
 
 // StockStatisticResponse 库存统计响应
 type StockStatisticResponse struct {
-	Message      string  `json:"message"`
-	ColName      string  `json:"col_name"`
-	Cleanup      int     `json:"cleanup"`       // 固定为0，标记无清理操作
-	ProductCount int     `json:"product_count"` // 新增：产品数量
-	TotalStock   float64 `json:"total_stock"`   // 新增：总库存数量
+	Message       string  `json:"message"`
+	ColName       string  `json:"col_name"`
+	Cleanup       int     `json:"cleanup"`        // 固定为0，标记无清理操作
+	ProductCount  int     `json:"product_count"`  // 新增：产品数量
+	TotalStock    float64 `json:"total_stock"`    // 新增：总库存数量
+	Base64Content string  `json:"base64_content"` // 二进制文件转为Base64字符串
 }
 
 // DeleteDateColumnResponse 删除日期列响应
@@ -237,6 +239,11 @@ func StockStatistic(req StockStatisticRequest) (*StockStatisticResponse, error) 
 	if err := baseFile.SaveAs(filepath.Join(req.BasePath, req.BaseFileName)); err != nil {
 		return nil, fmt.Errorf("保存文件失败：%v", err)
 	}
+	excelContent, err := os.ReadFile(filepath.Join(req.BasePath, req.BaseFileName))
+	if err != nil {
+		return nil, fmt.Errorf("读取文件失败：%v", err)
+	}
+	base64Content := base64.StdEncoding.EncodeToString(excelContent)
 
 	// 计算产品数量
 	productCount := len(productSet)
@@ -244,11 +251,12 @@ func StockStatistic(req StockStatisticRequest) (*StockStatisticResponse, error) 
 	fmt.Printf("统计完成！产品数量：%d，总库存数量：%.2f\n", productCount, totalStock)
 	// 返回包含新增字段的响应
 	return &StockStatisticResponse{
-		Message:      fmt.Sprintf("库存更新完成！新增列：%s。统计结果：产品数量 %d，总库存数量 %.2f", targetColName, productCount, totalStock),
-		ColName:      targetColName,
-		Cleanup:      0,
-		ProductCount: productCount,
-		TotalStock:   totalStock,
+		Message:       fmt.Sprintf("库存更新完成！新增列：%s。统计结果：产品数量 %d，总库存数量 %.2f", targetColName, productCount, totalStock),
+		ColName:       targetColName,
+		Cleanup:       0,
+		ProductCount:  productCount,
+		TotalStock:    totalStock,
+		Base64Content: base64Content,
 	}, nil
 }
 

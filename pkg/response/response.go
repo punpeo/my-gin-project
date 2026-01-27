@@ -1,321 +1,73 @@
 package response
 
-import "github.com/gin-gonic/gin"
+import (
+	"net/http"
 
-// 基础响应结构体
+	"github.com/gin-gonic/gin"
+)
+
+// 基础响应结构体（极简通用版）
+// 字段命名采用前端友好的短命名（code/msg/data），兼顾兼容性
 type BaseResponse struct {
-	Code int         `json:"code"` // 业务状态码
-	Msg  string      `json:"msg"`  // 提示信息
-	Data interface{} `json:"data"` // 响应数据
+	Code int         `json:"code"` // 业务状态码（核心区分成功/失败/具体业务错误）
+	Msg  string      `json:"msg"`  // 人性化提示信息（前端直接展示）
+	Data interface{} `json:"data"` // 响应数据（成功时返回，失败时为nil）
 }
 
-// HTTP状态码常量定义
+// --------------------------
+// 1. HTTP状态码常量（复用net/http标准常量，增强可读性）
+// --------------------------
 const (
-	HTTPStatusOK           = 200 // 成功
-	HTTPStatusBadRequest   = 400 // 参数错误
-	HTTPStatusUnauthorized = 401 // 未授权
-	HTTPStatusForbidden    = 403 // 禁止访问
-	HTTPStatusNotFound     = 404 // 资源不存在
-	HTTPStatusConflict     = 409 // 资源冲突
-	HTTPStatusServerError  = 500 // 服务器内部错误
-	HTTPStatusServiceError = 503 // 服务不可用
+	HTTPStatusOK                  = http.StatusOK                  // 200 成功
+	HTTPStatusBadRequest          = http.StatusBadRequest          // 400 参数错误
+	HTTPStatusUnauthorized        = http.StatusUnauthorized        // 401 未授权
+	HTTPStatusForbidden           = http.StatusForbidden           // 403 禁止访问
+	HTTPStatusNotFound            = http.StatusNotFound            // 404 资源不存在
+	HTTPStatusConflict            = http.StatusConflict            // 409 资源冲突
+	HTTPStatusInternalServerError = http.StatusInternalServerError // 500 系统内部错误
 )
 
-// 业务状态码常量定义（在HTTP状态码基础上细化）
+// --------------------------
+// 2. 业务状态码常量（分层定义，便于维护）
+// 规则：0开头=成功，4xx开头=客户端错误，5xx开头=服务端错误，1xxx=业务自定义错误
+// --------------------------
 const (
-	// 成功状态码
-	CodeSuccess = 20000 // 通用成功
+	// 通用成功状态码
+	CodeSuccess = 0 // 通用成功
 
-	// 客户端错误 4xx
-	CodeBadRequest       = 40000 // 通用客户端错误
-	CodeValidationError  = 40001 // 参数验证失败
-	CodeParamRequired    = 40002 // 参数缺失
-	CodeParamInvalid     = 40003 // 参数格式错误
-	CodeResourceNotFound = 40400 // 资源不存在
-	CodeFileNotFound     = 40401 // 文件不存在
-	CodeDataNotFound     = 40402 // 数据不存在
-	CodeUnauthorized     = 40100 // 未授权
-	CodeForbidden        = 40300 // 禁止访问
-	CodeConflict         = 40900 // 资源冲突
-	CodeRequestTimeout   = 40800 // 请求超时
-	CodeTooManyRequests  = 42900 // 请求过多
+	// 通用客户端错误（对应HTTP 4xx）
+	CodeBadRequest   = 400 // 通用参数错误/请求格式错误
+	CodeUnauthorized = 401 // 未登录/Token失效
+	CodeForbidden    = 403 // 无权限访问
+	CodeNotFound     = 404 // 资源不存在
+	CodeConflict     = 409 // 资源冲突（如重复创建）
 
-	// 服务器错误 5xx
-	CodeServerError          = 50000 // 通用服务器错误
-	CodeDatabaseError        = 50001 // 数据库错误
-	CodeFileSystemError      = 50002 // 文件系统错误
-	CodeNetworkError         = 50003 // 网络错误
-	CodeExternalServiceError = 50004 // 外部服务错误
-	CodeBusinessLogicError   = 50005 // 业务逻辑错误
-	CodeServiceUnavailable   = 50300 // 服务不可用
-	CodeGatewayTimeout       = 50400 // 网关超时
+	// 通用服务端错误（对应HTTP 5xx）
+	CodeServerError    = 500 // 系统内部错误
+	CodeServiceUnavail = 503 // 服务不可用
 
-	// 业务特定错误码（可以根据具体业务扩展）
-	CodeExcelProcessingError = 51000 // Excel处理错误
-	CodeExcelFileError       = 51001 // Excel文件错误
-	CodeExcelDataError       = 51002 // Excel数据错误
-	CodeExcelTemplateError   = 51003 // Excel模板错误
-	CodeFileProcessingError  = 52000 // 文件处理错误
-	CodeDataProcessingError  = 53000 // 数据处理错误
-	CodeStatisticsError      = 54000 // 统计错误
-	CodeExportError          = 55000 // 导出错误
+	// 业务自定义错误（示例：库存业务）
+	CodeStockFileEmpty   = 1001 // 库存文件目录为空
+	CodeStockColumnExist = 1002 // 库存日期列已存在
+	CodeStockFileError   = 1003 // 库存文件读写错误
 )
 
-// Success 成功响应（通用） - 保持兼容
+// --------------------------
+// 3. 通用成功响应函数（高频使用）
+// --------------------------
+
+// Success 通用成功响应（默认HTTP 200 + 通用成功码 + 固定提示语）
+// 场景：大部分接口的成功响应（无需自定义消息/状态码）
 func Success(c *gin.Context, data interface{}) {
 	c.JSON(HTTPStatusOK, BaseResponse{
 		Code: CodeSuccess,
-		Msg:  "success",
+		Msg:  "操作成功",
 		Data: data,
 	})
 }
 
-// Fail 失败响应（通用） - 保持兼容
-func Fail(c *gin.Context, code int, msg string) {
-	c.JSON(HTTPStatusOK, BaseResponse{
-		Code: code,
-		Msg:  msg,
-		Data: nil,
-	})
-}
-
-// SuccessWithStatus 成功响应（可指定HTTP状态码）
-func SuccessWithStatus(c *gin.Context, httpStatus int, data interface{}) {
-	c.JSON(httpStatus, BaseResponse{
-		Code: CodeSuccess,
-		Msg:  "success",
-		Data: data,
-	})
-}
-
-// FailWithStatus 失败响应（可指定HTTP状态码和业务状态码）
-func FailWithStatus(c *gin.Context, httpStatus, code int, msg string) {
-	c.JSON(httpStatus, BaseResponse{
-		Code: code,
-		Msg:  msg,
-		Data: nil,
-	})
-}
-
-// 预定义的便捷方法
-
-// BadRequest 参数错误
-func BadRequest(c *gin.Context, msg string) {
-	c.JSON(HTTPStatusBadRequest, BaseResponse{
-		Code: CodeBadRequest,
-		Msg:  msg,
-		Data: nil,
-	})
-}
-
-// ValidationError 参数验证错误
-func ValidationError(c *gin.Context, msg string) {
-	c.JSON(HTTPStatusBadRequest, BaseResponse{
-		Code: CodeValidationError,
-		Msg:  msg,
-		Data: nil,
-	})
-}
-
-// ParamRequiredError 参数缺失错误
-func ParamRequiredError(c *gin.Context, msg string) {
-	c.JSON(HTTPStatusBadRequest, BaseResponse{
-		Code: CodeParamRequired,
-		Msg:  msg,
-		Data: nil,
-	})
-}
-
-// Unauthorized 未授权
-func Unauthorized(c *gin.Context, msg string) {
-	c.JSON(HTTPStatusUnauthorized, BaseResponse{
-		Code: CodeUnauthorized,
-		Msg:  msg,
-		Data: nil,
-	})
-}
-
-// Forbidden 禁止访问
-func Forbidden(c *gin.Context, msg string) {
-	c.JSON(HTTPStatusForbidden, BaseResponse{
-		Code: CodeForbidden,
-		Msg:  msg,
-		Data: nil,
-	})
-}
-
-// NotFound 资源不存在
-func NotFound(c *gin.Context, msg string) {
-	c.JSON(HTTPStatusNotFound, BaseResponse{
-		Code: CodeResourceNotFound,
-		Msg:  msg,
-		Data: nil,
-	})
-}
-
-// FileNotFound 文件不存在
-func FileNotFound(c *gin.Context, msg string) {
-	c.JSON(HTTPStatusNotFound, BaseResponse{
-		Code: CodeFileNotFound,
-		Msg:  msg,
-		Data: nil,
-	})
-}
-
-// DataNotFound 数据不存在
-func DataNotFound(c *gin.Context, msg string) {
-	c.JSON(HTTPStatusNotFound, BaseResponse{
-		Code: CodeDataNotFound,
-		Msg:  msg,
-		Data: nil,
-	})
-}
-
-// Conflict 资源冲突
-func Conflict(c *gin.Context, msg string) {
-	c.JSON(HTTPStatusConflict, BaseResponse{
-		Code: CodeConflict,
-		Msg:  msg,
-		Data: nil,
-	})
-}
-
-// RequestTimeout 请求超时
-func RequestTimeout(c *gin.Context, msg string) {
-	c.JSON(HTTPStatusBadRequest, BaseResponse{
-		Code: CodeRequestTimeout,
-		Msg:  msg,
-		Data: nil,
-	})
-}
-
-// TooManyRequests 请求过多
-func TooManyRequests(c *gin.Context, msg string) {
-	c.JSON(429, BaseResponse{
-		Code: CodeTooManyRequests,
-		Msg:  msg,
-		Data: nil,
-	})
-}
-
-// InternalServerError 服务器内部错误
-func InternalServerError(c *gin.Context, msg string) {
-	c.JSON(HTTPStatusServerError, BaseResponse{
-		Code: CodeServerError,
-		Msg:  msg,
-		Data: nil,
-	})
-}
-
-// DatabaseError 数据库错误
-func DatabaseError(c *gin.Context, msg string) {
-	c.JSON(HTTPStatusServerError, BaseResponse{
-		Code: CodeDatabaseError,
-		Msg:  msg,
-		Data: nil,
-	})
-}
-
-// FileSystemError 文件系统错误
-func FileSystemError(c *gin.Context, msg string) {
-	c.JSON(HTTPStatusServerError, BaseResponse{
-		Code: CodeFileSystemError,
-		Msg:  msg,
-		Data: nil,
-	})
-}
-
-// BusinessLogicError 业务逻辑错误
-func BusinessLogicError(c *gin.Context, msg string) {
-	c.JSON(HTTPStatusServerError, BaseResponse{
-		Code: CodeBusinessLogicError,
-		Msg:  msg,
-		Data: nil,
-	})
-}
-
-// ExcelProcessingError Excel处理错误
-func ExcelProcessingError(c *gin.Context, msg string) {
-	c.JSON(HTTPStatusServerError, BaseResponse{
-		Code: CodeExcelProcessingError,
-		Msg:  msg,
-		Data: nil,
-	})
-}
-
-// ExcelFileError Excel文件错误
-func ExcelFileError(c *gin.Context, msg string) {
-	c.JSON(HTTPStatusServerError, BaseResponse{
-		Code: CodeExcelFileError,
-		Msg:  msg,
-		Data: nil,
-	})
-}
-
-// ExcelDataError Excel数据错误
-func ExcelDataError(c *gin.Context, msg string) {
-	c.JSON(HTTPStatusServerError, BaseResponse{
-		Code: CodeExcelDataError,
-		Msg:  msg,
-		Data: nil,
-	})
-}
-
-// FileProcessingError 文件处理错误
-func FileProcessingError(c *gin.Context, msg string) {
-	c.JSON(HTTPStatusServerError, BaseResponse{
-		Code: CodeFileProcessingError,
-		Msg:  msg,
-		Data: nil,
-	})
-}
-
-// DataProcessingError 数据处理错误
-func DataProcessingError(c *gin.Context, msg string) {
-	c.JSON(HTTPStatusServerError, BaseResponse{
-		Code: CodeDataProcessingError,
-		Msg:  msg,
-		Data: nil,
-	})
-}
-
-// StatisticsError 统计错误
-func StatisticsError(c *gin.Context, msg string) {
-	c.JSON(HTTPStatusServerError, BaseResponse{
-		Code: CodeStatisticsError,
-		Msg:  msg,
-		Data: nil,
-	})
-}
-
-// ExportError 导出错误
-func ExportError(c *gin.Context, msg string) {
-	c.JSON(HTTPStatusServerError, BaseResponse{
-		Code: CodeExportError,
-		Msg:  msg,
-		Data: nil,
-	})
-}
-
-// ServiceUnavailable 服务不可用
-func ServiceUnavailable(c *gin.Context, msg string) {
-	c.JSON(HTTPStatusServiceError, BaseResponse{
-		Code: CodeServiceUnavailable,
-		Msg:  msg,
-		Data: nil,
-	})
-}
-
-// GatewayTimeout 网关超时
-func GatewayTimeout(c *gin.Context, msg string) {
-	c.JSON(504, BaseResponse{
-		Code: CodeGatewayTimeout,
-		Msg:  msg,
-		Data: nil,
-	})
-}
-
-// SuccessWithMessage 成功响应（自定义消息）
+// SuccessWithMessage 自定义提示语的成功响应（默认HTTP 200）
+// 场景：需要自定义成功提示（如“库存统计成功”“文件删除成功”）
 func SuccessWithMessage(c *gin.Context, msg string, data interface{}) {
 	c.JSON(HTTPStatusOK, BaseResponse{
 		Code: CodeSuccess,
@@ -324,11 +76,58 @@ func SuccessWithMessage(c *gin.Context, msg string, data interface{}) {
 	})
 }
 
-// Error 统一错误处理（推荐使用）
-func Error(c *gin.Context, httpStatus, code int, msg string) {
+// SuccessWithStatus 自定义HTTP状态码的成功响应
+// 场景：特殊成功场景（如创建资源返回201 Created）
+func SuccessWithStatus(c *gin.Context, httpStatus int, data interface{}) {
+	c.JSON(httpStatus, BaseResponse{
+		Code: CodeSuccess,
+		Msg:  "操作成功",
+		Data: data,
+	})
+}
+
+// --------------------------
+// 4. 通用失败响应函数（高频使用）
+// --------------------------
+
+// Fail 通用失败响应（默认HTTP 200 + 自定义业务码 + 提示语）
+// 场景：前端需要自定义处理业务错误，但HTTP层面返回200（兼容老前端逻辑）
+func Fail(c *gin.Context, code int, msg string) {
+	c.JSON(HTTPStatusOK, BaseResponse{
+		Code: code,
+		Msg:  msg,
+		Data: nil,
+	})
+}
+
+// FailWithStatus 自定义HTTP状态码的失败响应（推荐标准用法）
+// 场景：符合RESTful规范，HTTP状态码反映请求层面错误，业务码反映具体错误
+func FailWithStatus(c *gin.Context, httpStatus, code int, msg string) {
 	c.JSON(httpStatus, BaseResponse{
 		Code: code,
 		Msg:  msg,
 		Data: nil,
 	})
+}
+
+// --------------------------
+// 5. 快捷错误响应函数（简化高频错误场景）
+// --------------------------
+
+// BadRequest 参数错误快捷响应（HTTP 400 + 通用参数错误码）
+// 场景：参数校验失败、请求格式错误等
+func BadRequest(c *gin.Context, msg string) {
+	FailWithStatus(c, HTTPStatusBadRequest, CodeBadRequest, msg)
+}
+
+// ServerError 系统错误快捷响应（HTTP 500 + 通用系统错误码）
+// 场景：数据库错误、文件读写错误等服务端异常
+func ServerError(c *gin.Context, msg string) {
+	FailWithStatus(c, HTTPStatusInternalServerError, CodeServerError, msg)
+}
+
+// NotFound 资源不存在快捷响应（HTTP 404 + 资源不存在码）
+// 场景：文件不存在、记录不存在等
+func NotFound(c *gin.Context, msg string) {
+	FailWithStatus(c, HTTPStatusNotFound, CodeNotFound, msg)
 }

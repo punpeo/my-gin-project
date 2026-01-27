@@ -27,20 +27,12 @@ func NewExcelHandler() *ExcelHandler {
 	}
 }
 
-// ProcessExcel 处理Excel并返回下载响应
-// @Summary 批量处理Excel并下载汇总结果
-// @Produce application/json,application/octet-stream
-// @Param data body service.ExcelProcessRequest true "Excel处理参数"
-// @Success 200 {file} application/octet-stream "Excel文件字节流"
-// @Failure 400 {object} response.ErrorResponse "参数错误"
-// @Failure 500 {object} response.ErrorResponse "服务器错误"
-// @Router /api/v1/excel/process [post]
 func (h *ExcelHandler) ProcessExcel(c *gin.Context) {
 	// 1. 只绑定JSON格式（和前端保持一致，避免格式冲突）
 	var req service.ExcelProcessRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		logger.Errorf("JSON参数绑定失败：%v，原始请求体：%s", err, c.Request.Body)
-		response.BadRequest(c, "参数错误："+err.Error())
+		response.BadRequest(c, "参数绑定失败，请检查请求格式是否正确")
 		return
 	}
 
@@ -76,7 +68,7 @@ func (h *ExcelHandler) ProcessExcel(c *gin.Context) {
 		logger.Errorf("处理Excel失败：%v", err)
 
 		// 返回统一的错误信息，不包含详细的技术细节
-		response.InternalServerError(c, "操作失败，请检查数据后重新进行操作")
+		response.BadRequest(c, "操作失败，请检查数据后重新进行操作")
 		return
 	}
 
@@ -84,7 +76,7 @@ func (h *ExcelHandler) ProcessExcel(c *gin.Context) {
 	var buf bytes.Buffer
 	if err := excelFile.Write(&buf); err != nil {
 		logger.Errorf("生成Excel字节流失败：%v", err)
-		response.InternalServerError(c, "生成Excel文件失败")
+		response.BadRequest(c, "生成Excel文件失败")
 		return
 	}
 
