@@ -69,6 +69,8 @@ func StockStatisticHandler(c *gin.Context) {
 	// 添加统计信息的响应头，供前端显示
 	if resp != nil && resp.ColName != "" {
 		c.Header("X-Column-Name", resp.ColName)
+		c.Header("X-Product-Count", strconv.Itoa(resp.ProductCount))
+		c.Header("X-Total-Stock", strconv.FormatFloat(resp.TotalStock, 'f', 2, 64))
 	}
 	c.Header("X-Process-Success", "true")
 

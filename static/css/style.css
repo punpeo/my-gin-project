@@ -528,21 +528,6 @@ select.form-control {
 
 /* ========== 新增：响应结果展示区样式 ========== */
 .response-container {
-    margin: 0px 0;
-    width: 100%;
-}
-
-.response-container .form-label {
-    display: block;
-    margin-bottom: 5px;
-    font-weight: 600;
-    color: var(--gray-700);
-}
-
-/* 响应内容展示区 */
-/* ========== 新增：响应结果展示区样式 ========== */
-/* ========== 响应结果展示区样式（80px高度 - 原版） ========== */
-.response-container {
     margin: 16px 0; /* 增加上下间距，和表单/按钮区区分开 */
     width: 100%;
 }
@@ -599,18 +584,6 @@ select.form-control {
     display: flex;
     align-items: center;
     justify-content: center;
-}
-
-/* 移动端适配（保持80px高度，仅微调内边距） */
-@media (max-width: 768px) {
-    .response-container {
-        margin: 12px 0;
-    }
-    .response-content {
-        height: 80px; /* 移动端仍保持80px高度 */
-        padding: 12px 10px;
-        font-size: 0.9rem;
-    }
 }
 
 /* ========== 响应结果展示区样式（120px高度 - 新增版） ========== */
@@ -673,38 +646,6 @@ select.form-control {
     justify-content: center;
 }
 
-/* 移动端适配（保持120px高度） */
-@media (max-width: 768px) {
-    .response-container-lg {
-        margin: 12px 0;
-    }
-    .response-content-lg {
-        height: 120px; /* 移动端同步新高度 */
-        padding: 12px 10px;
-        font-size: 0.9rem;
-    }
-}
-/* ========== 响应结果展示区样式结束 ========== */
-
-
-/* 补充：移动端适配（可选） */
-@media (max-width: 768px) {
-    .response-content {
-        height: 120px; /* 移动端高度稍小，适配屏幕 */
-        padding: 10px 8px;
-    }
-    .response-placeholder {
-        line-height: 100px; /* 120px - 10*2 = 100px，居中 */
-    }
-    .response-content.loading,
-    .response-content.success,
-    .response-content.error {
-        height: 120px; /* 移动端同步高度 */
-    }
-}
-/* ========== 响应结果展示区样式结束 ========== */
-
-/* 统一文件上传区域 */
 /* 统一文件上传区域（高度缩小一半） */
 .file-upload-area {
     background: linear-gradient(135deg, var(--gray-50), white);
@@ -857,15 +798,52 @@ select.form-control {
 .data-value {
     font-size: 2.2rem;
     font-weight: 800;
-    color: var(--primary);
+    color: var(--success); /* 默认绿色 */
     line-height: 1;
     margin-bottom: 8px;
+    transition: color 0.3s, font-size 0.3s; /* 平滑过渡 */
 }
 
 .data-label {
     font-size: 0.95rem;
     color: var(--gray-600);
     font-weight: 500;
+}
+
+/* ========== 补充：high-value 高数值样式 ========== */
+.data-card.high-value {
+    border-color: var(--accent); /* 橙色边框突出高数值 */
+    background: linear-gradient(135deg, rgba(245, 158, 11, 0.05), white);
+    box-shadow: 0 4px 12px rgba(245, 158, 11, 0.1);
+}
+.data-card.high-value .data-value {
+    color: var(--accent); /* 高数值用橙色突出 */
+    font-size: 2.4rem; /* 高数值字号稍大，强化视觉 */
+}
+
+/* ========== 补充：is-updated 更新动效 ========== */
+.data-card.is-updated {
+    animation: pulse-card 0.8s ease;
+}
+@keyframes pulse-card {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.02); }
+    100% { transform: scale(1); }
+}
+
+/* ========== 补充：状态切换样式 ========== */
+/* 错误状态（需JS给data-card添加error类） */
+.data-card.error .data-value {
+    color: var(--danger); /* 错误时红色 */
+}
+/* 警告状态（可选扩展） */
+.data-card.warning .data-value {
+    color: var(--warning); /* 警告时黄色 */
+}
+/* 加载中状态（可选扩展） */
+.data-card.loading .data-value {
+    color: var(--gray-400);
+    font-size: 1.8rem; /* 加载中字号稍小 */
 }
 
 /* 模块独立性增强样式 */
@@ -1049,5 +1027,10 @@ select.form-control {
     
     .response-placeholder {
         line-height: 8px;
+    }
+
+    /* 移动端数据卡片样式适配 */
+    .data-card.high-value .data-value {
+        font-size: 2.0rem; /* 移动端高数值字号适配 */
     }
 }

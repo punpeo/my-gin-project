@@ -30,7 +30,7 @@ type ExcelProcessResponse struct {
 	GroupedData map[string]GroupData `json:"grouped_data"`  // 分组统计数据
 	Message     string               `json:"message"`       // 处理结果消息
 	TotalAllNum int                  `json:"total_all_num"` // 总计数量
-	TotalAllAmt float64              `json:"total_all_amt"` // 总计金额
+	TotalAllAmt float64              `json:"total_all_amt"` // 求和汇总
 	Processed   int                  `json:"processed"`     // 成功处理文件数
 	Skipped     int                  `json:"skipped"`       // 跳过文件数
 	XlsxCount   int                  `json:"xlsx_count"`    // .xlsx文件数

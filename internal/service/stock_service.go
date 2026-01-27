@@ -44,9 +44,11 @@ type CleanupFileRequest struct {
 
 // StockStatisticResponse 库存统计响应
 type StockStatisticResponse struct {
-	Message string `json:"message"`
-	ColName string `json:"col_name"`
-	Cleanup int    `json:"cleanup"` // 固定为0，标记无清理操作
+	Message      string  `json:"message"`
+	ColName      string  `json:"col_name"`
+	Cleanup      int     `json:"cleanup"`       // 固定为0，标记无清理操作
+	ProductCount int     `json:"product_count"` // 新增：产品数量
+	TotalStock   float64 `json:"total_stock"`   // 新增：总库存数量
 }
 
 // DeleteDateColumnResponse 删除日期列响应
@@ -64,6 +66,7 @@ type CleanupFileResponse struct {
 var cronJob *cron.Cron
 
 // ========== 核心逻辑：库存统计（无清理） ==========
+// StockStatistic 核心库存统计函数
 func StockStatistic(req StockStatisticRequest) (*StockStatisticResponse, error) {
 	// 参数校验
 	if req.BasePath == "" {
@@ -83,7 +86,6 @@ func StockStatistic(req StockStatisticRequest) (*StockStatisticResponse, error) 
 	}
 	defer baseFile.Close()
 
-	// 读取工作表
 	baseSheet := baseFile.GetSheetName(0)
 	rows, err := baseFile.GetRows(baseSheet)
 	if err != nil {
@@ -111,13 +113,18 @@ func StockStatistic(req StockStatisticRequest) (*StockStatisticResponse, error) 
 		baseStockMap[key] = productCode
 	}
 
+	// 新增统计变量
+	productSet := make(map[string]struct{}) // 用于统计不同产品数量
+	totalStock := 0.0                       // 用于统计总库存数量
+	stockSumMap := make(map[string]float64) // 原有逻辑保持不变
+
 	// 遍历文件计算库存总和
-	stockSumMap := make(map[string]float64)
 	err = filepath.Walk(req.BasePath, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
-		// 跳过基准文件/非Excel/目录
+
+		// 跳过目录/基准文件/非Excel文件
 		ext := strings.ToLower(filepath.Ext(path))
 		if info.IsDir() || filepath.Base(path) == req.BaseFileName || !(ext == ".xlsx" || ext == ".xls") {
 			return nil
@@ -150,19 +157,22 @@ func StockStatistic(req StockStatisticRequest) (*StockStatisticResponse, error) 
 				}
 			}
 		}
+
 		if productCodeColIdx == -1 || stockColIdx == -1 {
 			fmt.Printf("文件%s缺少关键列\n", path)
 			return nil
 		}
 
-		// 统计库存
+		// 统计库存数据
 		for rowIdx := 1; rowIdx < len(fileRows); rowIdx++ {
 			row := fileRows[rowIdx]
 			if len(row) <= productCodeColIdx || len(row) <= stockColIdx {
 				continue
 			}
+
 			productCode := strings.TrimSpace(row[productCodeColIdx])
 			stockStr := strings.TrimSpace(row[stockColIdx])
+
 			if productCode == "" || stockStr == "" {
 				continue
 			}
@@ -173,7 +183,11 @@ func StockStatistic(req StockStatisticRequest) (*StockStatisticResponse, error) 
 				continue
 			}
 
-			// 匹配基准商品
+			// 新增统计逻辑
+			productSet[productCode] = struct{}{} // 记录唯一产品编码
+			totalStock += stock                  // 累加总库存
+
+			// 原有匹配逻辑保持不变
 			for key, pc := range baseStockMap {
 				if pc == productCode {
 					stockSumMap[key] += stock
@@ -182,20 +196,17 @@ func StockStatistic(req StockStatisticRequest) (*StockStatisticResponse, error) 
 		}
 		return nil
 	})
+
 	if err != nil {
 		return nil, fmt.Errorf("遍历目录失败：%v", err)
 	}
 
-	// 写入库存数据
+	// 写入库存数据到基准文件（原有逻辑保持不变）
 	headerRow := rows[0]
 	newColIdx := len(headerRow)
 	newColLetter, err := excelize.ColumnNumberToName(newColIdx + 1)
 	if err != nil {
 		return nil, fmt.Errorf("转换列索引失败：%v", err)
-	}
-	prevColLetter, err := excelize.ColumnNumberToName(newColIdx)
-	if err != nil {
-		return nil, fmt.Errorf("转换前一列索引失败：%v", err)
 	}
 
 	// 写入表头
@@ -203,32 +214,21 @@ func StockStatistic(req StockStatisticRequest) (*StockStatisticResponse, error) 
 		return nil, fmt.Errorf("设置表头失败：%v", err)
 	}
 
-	// 写入数据+计算差值
+	// 写入数据
 	for rowIdx := 1; rowIdx < len(rows); rowIdx++ {
 		row := rows[rowIdx]
 		excelRowNum := rowIdx + 1
 		if len(row) < 2 || row[0] == "" || row[1] == "" {
 			continue
 		}
+
 		shopCode := strings.TrimSpace(row[0])
 		productCode := strings.TrimSpace(row[1])
 		key := fmt.Sprintf("%s_%s", shopCode, productCode)
 
 		if sum, ok := stockSumMap[key]; ok {
-			// 写入库存总和
 			if err := baseFile.SetCellValue(baseSheet, fmt.Sprintf("%s%d", newColLetter, excelRowNum), sum); err != nil {
 				fmt.Printf("写入行%d库存失败：%v\n", excelRowNum, err)
-			}
-
-			// 计算差值
-			prevSum, err := getCellFloatValue(baseFile, baseSheet, fmt.Sprintf("%s%d", prevColLetter, excelRowNum))
-			if err != nil {
-				fmt.Printf("读取前一列值失败：%v\n", err)
-				continue
-			}
-			diff := sum*26 - prevSum*25
-			if err := baseFile.SetCellValue(baseSheet, fmt.Sprintf("%s%d", newColLetter, excelRowNum+1), diff); err != nil {
-				fmt.Printf("写入差值失败：%v\n", err)
 			}
 		}
 	}
@@ -238,10 +238,17 @@ func StockStatistic(req StockStatisticRequest) (*StockStatisticResponse, error) 
 		return nil, fmt.Errorf("保存文件失败：%v", err)
 	}
 
+	// 计算产品数量
+	productCount := len(productSet)
+
+	fmt.Printf("统计完成！产品数量：%d，总库存数量：%.2f\n", productCount, totalStock)
+	// 返回包含新增字段的响应
 	return &StockStatisticResponse{
-		Message: fmt.Sprintf("库存更新完成！新增列：%s，已完成差值计算并写入。", targetColName),
-		ColName: targetColName,
-		Cleanup: 0,
+		Message:      fmt.Sprintf("库存更新完成！新增列：%s。统计结果：产品数量 %d，总库存数量 %.2f", targetColName, productCount, totalStock),
+		ColName:      targetColName,
+		Cleanup:      0,
+		ProductCount: productCount,
+		TotalStock:   totalStock,
 	}, nil
 }
 

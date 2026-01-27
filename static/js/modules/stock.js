@@ -311,6 +311,59 @@ const StockModule = {
             this.hideButtonLoading(button);
         }
     },
+
+    /**
+     * 新增：更新统计数据显示
+     */
+    updateStatisticsDisplay: function(productCount, totalStock) {
+        // 产品数量显示
+        const productCard = document.getElementById('product-count-card');
+        if (productCard) {
+            const productValueEl = productCard.querySelector('.data-value');
+            if (productValueEl) {
+                productValueEl.textContent = productCount.toLocaleString();
+                productCard.classList.add('is-updated');
+            }
+        }
+
+        // 总库存显示
+        const stockCard = document.getElementById('total-stock-card');
+        if (stockCard) {
+            const stockValueEl = stockCard.querySelector('.data-value');
+            if (stockValueEl) {
+                stockValueEl.textContent = totalStock.toLocaleString('en-US', { 
+                    minimumFractionDigits: 2, 
+                    maximumFractionDigits: 2 
+                });
+                stockCard.classList.add('is-updated');
+            }
+        }
+
+        // 添加动态样式
+        if (productCard && productCount > 1000) {
+            productCard.classList.add('high-value');
+        }
+        if (stockCard && totalStock > 100000) {
+            stockCard.classList.add('high-value');
+        }
+    },
+
+    /**
+     * 处理库存统计响应
+     */
+    handleStatisticsResponse: async function(response) {
+        try {
+            const responseData = await response.json();
+            // 调用统计数据更新展示函数
+            this.updateStatisticsDisplay(
+                responseData.product_count || 0,
+                responseData.total_stock || 0
+            );
+            this.showSuccess('库存统计完成');
+        } catch (error) {
+            this.showError(`处理统计响应失败: ${error.message}`);
+        }
+    },
     
     /**
      * 处理库存统计
@@ -337,6 +390,9 @@ const StockModule = {
             
             // 调用库存统计API
             const response = await this.fetchStatistics(requestData);
+            
+            // 处理统计响应（新增调用）
+            await this.handleStatisticsResponse(response.clone());
             
             // 处理文件下载
             const filename = await this.handleExcelFileDownload(response);
