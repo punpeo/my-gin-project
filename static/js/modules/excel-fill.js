@@ -25,7 +25,8 @@ const ExcelFillModule = {
      * @param {HTMLElement} container - 模块容器
      */
     init: function(container) {
-        console.log('初始化Excel数据匹配填充模块');
+        // 移除调试日志
+        // console.log('初始化Excel数据匹配填充模块');
         
         // 缓存DOM元素
         this.cacheElements(container);
@@ -61,7 +62,7 @@ const ExcelFillModule = {
             filledRows: container.querySelector('#excel-fill-filled-rows'),
             emptyRows: container.querySelector('#excel-fill-empty-rows'),
             
-            // 响应容器（修复ID匹配）
+            // 响应容器
             responseContainer: container.querySelector('#excel-fill-response-container'),
             responseContent: container.querySelector('#excel-fill-response-content')
         };
@@ -155,7 +156,8 @@ const ExcelFillModule = {
             this.handleResponse(responseData);
             
         } catch (error) {
-            console.error('处理失败:', error);
+            // 移除调试日志
+            // console.error('处理失败:', error);
             this.showError(`处理失败: ${error.message}`);
         } finally {
             this.setProcessing(false);
@@ -178,7 +180,7 @@ const ExcelFillModule = {
     },
     
     /**
-     * 调用填充API（核心调整：适配后端统一返回200 + 业务码）
+     * 调用填充API（核心调整：适配后端统一返回200 + 业务码 + 移除调试日志）
      */
     callFillAPI: async function(requestData) {
         const el = this.elements;
@@ -201,6 +203,8 @@ const ExcelFillModule = {
             
             // 无论HTTP状态码如何，都解析JSON（后端已统一返回200）
             const responseData = await response.json();
+            // 移除调试日志
+            // console.log('后端完整响应数据:', responseData);
             
             // 判断业务码
             if (responseData.code !== 0) {
@@ -216,32 +220,57 @@ const ExcelFillModule = {
     },
     
     /**
-     * 处理API响应（核心调整：解析Base64并下载文件）
+     * 处理API响应（核心修复：字段名大小写匹配 + 增强Base64容错 + 自定义提示）
      */
     handleResponse: function(responseData) {
         const el = this.elements;
+        // 移除调试日志
+        // console.log('待处理的业务数据:', responseData);
         
-        // 更新数据卡片
-        if (el.totalRows) el.totalRows.textContent = responseData.TotalRows || 0;
-        if (el.filledRows) el.filledRows.textContent = responseData.FilledRows || 0;
-        if (el.emptyRows) el.emptyRows.textContent = responseData.EmptyRows || 0;
+        // 修复：使用后端返回的下划线字段名（核心！）
+        const totalRows = responseData.total_rows || 0;
+        const filledRows = responseData.filled_rows || 0;
+        const emptyRows = responseData.empty_rows || 0;
+        const base64Data = responseData.base64_data || '';
+        const outputFile = responseData.output_file || '待输入表_已填充.xlsx';
         
-        // 处理Base64文件下载（后端返回Base64编码，而非直接返回文件）
-        if (responseData.Base64Data) {
-            this.downloadExcelFromBase64(responseData.Base64Data, responseData.OutputFile || '待输入表_已填充.xlsx');
+        // 更新数据卡片（修复后能正确显示）
+        if (el.totalRows) el.totalRows.textContent = totalRows;
+        if (el.filledRows) el.filledRows.textContent = filledRows;
+        if (el.emptyRows) el.emptyRows.textContent = emptyRows;
+        
+        // 处理Base64文件下载（增强判空 + 容错）
+        if (base64Data && base64Data.length > 0) {
+            try {
+                this.downloadExcelFromBase64(base64Data, outputFile);
+                // 下载成功：显示文件名
+                this.showSuccess(outputFile);
+            } catch (error) {
+                // 下载失败：显示指定提示
+                this.showError('文件输出失败，请检查数据后进行');
+                return;
+            }
+        } else {
+            // 无Base64数据：显示下载失败提示
+            this.showError('文件输出失败，请检查数据后进行');
+            return;
         }
-        
-        // 显示成功消息
-        this.showSuccess(responseData.Message || '处理完成！');
     },
     
     /**
-     * 从Base64数据下载Excel文件
+     * 从Base64数据下载Excel文件（增强容错 + 兼容不同浏览器 + 移除调试日志）
      */
     downloadExcelFromBase64: function(base64Data, filename) {
         try {
-            // 解码Base64数据
-            const byteCharacters = atob(base64Data);
+            // 移除Base64可能的前缀（如data:application/vnd.openxmlformats...;base64,）
+            const base64Pure = base64Data.replace(/^data:.+;base64,/, '');
+            
+            // 解码Base64数据（容错：空数据直接抛出错误）
+            if (!base64Pure || base64Pure.length < 10) { // 简单判断有效数据
+                throw new Error('Base64数据为空或无效');
+            }
+            
+            const byteCharacters = atob(base64Pure);
             const byteNumbers = new Array(byteCharacters.length);
             for (let i = 0; i < byteCharacters.length; i++) {
                 byteNumbers[i] = byteCharacters.charCodeAt(i);
@@ -251,21 +280,30 @@ const ExcelFillModule = {
                 type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
             });
             
-            // 创建下载链接
+            // 创建下载链接（兼容不同浏览器）
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
             a.download = filename;
+            a.style.display = 'none'; // 隐藏链接
             document.body.appendChild(a);
-            a.click();
             
-            // 清理资源
+            // 触发下载（兼容Firefox/Chrome/Safari）
+            const clickEvent = new MouseEvent('click', {
+                bubbles: true,
+                cancelable: true,
+                view: window
+            });
+            a.dispatchEvent(clickEvent);
+            
+            // 清理资源（延迟清理，确保下载完成）
             setTimeout(() => {
                 document.body.removeChild(a);
                 window.URL.revokeObjectURL(url);
-            }, 100);
+            }, 1000);
             
-            console.log(`文件已下载: ${filename}`);
+            // 移除调试日志
+            // console.log(`文件下载触发成功: ${filename}`);
         } catch (error) {
             throw new Error(`文件下载失败: ${error.message}`);
         }
@@ -407,9 +445,9 @@ const ExcelFillModule = {
     },
     
     /**
-     * 显示成功消息
+     * 显示成功消息（仅显示文件名）
      */
-    showSuccess: function(message) {
+    showSuccess: function(filename) {
         const el = this.elements;
         if (!el.responseContainer || !el.responseContent) return;
         
@@ -417,19 +455,14 @@ const ExcelFillModule = {
             <div class="success-message">
                 <i class="fas fa-check-circle text-success"></i>
                 <div class="message-text">
-                    <h5>处理完成</h5>
-                    <p>${message}</p>
-                    <div class="mt-2">
-                        <i class="fas fa-info-circle text-info"></i>
-                        <small>文件已开始下载，如未自动下载，请检查浏览器设置</small>
-                    </div>
+                    <p>${filename}</p>
                 </div>
             </div>
         `;
     },
     
     /**
-     * 显示错误消息
+     * 显示错误消息（仅显示指定失败提示）
      */
     showError: function(message) {
         const el = this.elements;
@@ -440,11 +473,25 @@ const ExcelFillModule = {
             <div class="error-message">
                 <i class="fas fa-exclamation-triangle text-danger"></i>
                 <div class="message-text">
-                    <h5>处理失败</h5>
                     <p>${message}</p>
-                    <button class="btn btn-sm btn-outline-primary mt-2" onclick="ExcelFillModule.handleProcess(event)">
-                        <i class="fas fa-redo"></i> 重试
-                    </button>
+                </div>
+            </div>
+        `;
+    },
+    
+    /**
+     * 显示信息消息（保留但隐藏自动消失逻辑）
+     */
+    showInfo: function(message) {
+        const el = this.elements;
+        if (!el.responseContainer || !el.responseContent) return;
+        
+        el.responseContainer.classList.remove('d-none');
+        el.responseContent.innerHTML = `
+            <div class="info-message">
+                <i class="fas fa-info-circle text-info"></i>
+                <div class="message-text">
+                    <p>${message}</p>
                 </div>
             </div>
         `;
@@ -526,34 +573,6 @@ const ExcelFillModule = {
     },
     
     /**
-     * 显示信息消息
-     */
-    showInfo: function(message) {
-        const el = this.elements;
-        if (!el.responseContainer || !el.responseContent) return;
-        
-        el.responseContainer.classList.remove('d-none');
-        el.responseContent.innerHTML = `
-            <div class="info-message">
-                <i class="fas fa-info-circle text-info"></i>
-                <div class="message-text">
-                    <h5>提示</h5>
-                    <p>${message}</p>
-                </div>
-            </div>
-        `;
-        
-        // 3秒后恢复占位
-        setTimeout(() => {
-            if (el.responseContent) {
-                el.responseContent.innerHTML = `
-                    <p class="response-placeholder">点击「开始匹配填充」后，执行结果将展示在此处</p>
-                `;
-            }
-        }, 3000);
-    },
-    
-    /**
      * 销毁模块
      */
     destroy: function() {
@@ -563,7 +582,8 @@ const ExcelFillModule = {
             el.processBtn.removeEventListener('click', this.handleProcess);
         }
         
-        console.log('Excel数据匹配填充模块已销毁');
+        // 移除调试日志
+        // console.log('Excel数据匹配填充模块已销毁');
     }
 };
 
