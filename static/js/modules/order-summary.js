@@ -1,247 +1,186 @@
-/**
- * 订单汇总模块
- * 功能：下载模板文件、上传并处理订单数据
- * 初始化函数：initorder_summary
- */
+/* eslint-disable no-undef */
+/* eslint-disable no-unused-vars */
+/* eslint-disable no-alert */
+/* eslint-disable no-restricted-globals */
 
-const OrderSummaryModule = {
-    // 模块配置
-    config: {
-        api: {
-            downloadTemplate: '/api/v1/order/download-template',
-            uploadProcess: '/api/v1/order/upload-process'
+(function() {
+    // 防止重复声明
+    if (window.OrderSummaryModule && window.OrderSummaryModule.initialized) {
+        console.warn('OrderSummaryModule已经初始化，跳过重复定义');
+        return;
+    }
+
+    // 定义订单汇总模块
+    const OrderSummaryModule = {
+        config: {
+            api: {
+                downloadTemplate: '/api/v1/order/download-template',
+                uploadProcess: '/api/v1/order/upload-process'
+            },
+            allowedFormats: ['.xlsx', '.xls'],
+            maxFileSize: 20 * 1024 * 1024 // 20MB
         },
-        allowedFormats: ['.xlsx', '.xls'],
-        maxFileSize: 20 * 1024 * 1024 // 20MB
-    },
-    
-    // DOM元素引用
-    elements: {},
-    
-    // 模块数据
-    data: {
-        uploadedFile: null,
-        processing: false,
-        fileInput: null
-    },
-    
-    /**
-     * 初始化模块
-     * @param {HTMLElement} container - 模块容器
-     */
-    init: function(container) {
-        console.log('初始化订单汇总模块');
         
-        // 缓存DOM元素
-        this.cacheElements(container);
+        elements: {},
+        data: {
+            uploadedFile: null,
+            processing: false,
+            fileInput: null,
+            initialized: false
+        },
         
-        // 创建文件输入框
-        this.createFileInput();
-        
-        // 绑定事件
-        this.bindEvents();
-        
-        // 初始化组件
-        this.initComponents();
-        
-        // 注册到模块管理器
-        if (typeof ModulesManager !== 'undefined') {
-            ModulesManager.registerModule('order-summary', this);
-        }
-    },
-    
-    /**
-     * 缓存DOM元素
-     */
-    cacheElements: function(container) {
-        this.elements = {
-            container: container,
-            // 表单元素
-            personSelect: container.querySelector('#order-person-select'),
-            fileUploadArea: container.querySelector('#order-file-upload-area'),
-            uploadIcon: container.querySelector('#order-upload-icon'),
-            uploadText: container.querySelector('#order-upload-text'),
-            uploadFormatHint: container.querySelector('#order-upload-format-hint'),
+        init(container) {
+            if (this.data.initialized) {
+                console.log('模块已初始化，跳过重复初始化');
+                return;
+            }
             
-            // 数据卡片
-            dataCards: container.querySelectorAll('.data-card'),
-            shopCountValue: container.querySelector('#order-shop-count'),
-            totalOrderValue: container.querySelector('#order-total-order'),
-            totalAmountValue: container.querySelector('#order-total-amount'),
-            duplicateOrderValue: container.querySelector('#order-duplicate-order'),
+            console.log('开始初始化订单汇总模块');
             
-            // 按钮
-            downloadTemplateBtn: container.querySelector('#order-download-template-btn'),
-            uploadProcessBtn: container.querySelector('#order-upload-process-btn')
-        };
-    },
-    
-    /**
-     * 创建文件输入框
-     */
-    createFileInput: function() {
-        this.data.fileInput = document.createElement('input');
-        this.data.fileInput.type = 'file';
-        this.data.fileInput.accept = '.xlsx,.xls';
-        this.data.fileInput.style.display = 'none';
+            this.cacheElements(container);
+            this.createFileInput();
+            this.bindEvents();
+            this.initComponents();
+            this.initResponseContainer();
+            
+            this.data.initialized = true;
+            console.log('订单汇总模块初始化完成');
+            
+            if (typeof window.ModulesManager !== 'undefined') {
+                window.ModulesManager.registerModule('order-summary', this);
+            }
+        },
         
-        this.data.fileInput.addEventListener('change', (e) => {
-            this.handleFileChange(e);
-        });
+        cacheElements(container) {
+            this.elements = {
+                container: container,
+                personSelect: container.querySelector('#order-person-select'),
+                fileUploadArea: container.querySelector('#order-file-upload-area'),
+                uploadIcon: container.querySelector('#order-upload-icon'),
+                uploadText: container.querySelector('#order-upload-text'),
+                uploadFormatHint: container.querySelector('#order-upload-format-hint'),
+                shopCountValue: container.querySelector('#order-shop-count'),
+                totalOrderValue: container.querySelector('#order-total-order'),
+                totalAmountValue: container.querySelector('#order-total-amount'),
+                duplicateOrderValue: container.querySelector('#order-duplicate-order'),
+                downloadTemplateBtn: container.querySelector('#order-download-template-btn'),
+                uploadProcessBtn: container.querySelector('#order-upload-process-btn'),
+                responseContainer: document.querySelector('#stock-response-container'),
+                responseContent: document.querySelector('#stock-response-content')
+            };
+            
+            console.log('缓存元素结果:', {
+                fileUploadArea: !!this.elements.fileUploadArea,
+                responseContent: !!this.elements.responseContent,
+                uploadProcessBtn: !!this.elements.uploadProcessBtn
+            });
+        },
         
-        if (document.body) {
-            document.body.appendChild(this.data.fileInput);
-        }
-    },
-    
-    /**
-     * 绑定事件监听器
-     */
-    bindEvents: function() {
-        const el = this.elements;
+        createFileInput() {
+            // 创建隐藏的文件输入框
+            this.data.fileInput = document.createElement('input');
+            this.data.fileInput.type = 'file';
+            this.data.fileInput.accept = '.xlsx,.xls';
+            this.data.fileInput.style.display = 'none';
+            
+            // 修复：添加change事件监听
+            this.data.fileInput.addEventListener('change', (e) => {
+                this.handleFileChange(e);
+            });
+            
+            if (document.body) {
+                document.body.appendChild(this.data.fileInput);
+            }
+        },
         
-        // 下载模板按钮点击
-        if (el.downloadTemplateBtn) {
-            el.downloadTemplateBtn.addEventListener('click', (e) => this.handleDownloadTemplate(e));
-        }
+        bindEvents() {
+            console.log('绑定事件监听器');
+            
+            // 下载模板按钮
+            if (this.elements.downloadTemplateBtn) {
+                console.log('绑定下载模板按钮点击事件');
+                this.elements.downloadTemplateBtn.addEventListener('click', (e) => {
+                    console.log('下载模板按钮被点击');
+                    this.handleDownloadTemplate(e);
+                });
+            } else {
+                console.error('下载模板按钮元素未找到');
+            }
+            
+            // 上传处理按钮
+            if (this.elements.uploadProcessBtn) {
+                console.log('绑定上传处理按钮点击事件');
+                this.elements.uploadProcessBtn.addEventListener('click', (e) => {
+                    console.log('上传处理按钮被点击');
+                    this.handleUploadProcess(e);
+                });
+            } else {
+                console.error('上传处理按钮元素未找到');
+            }
+            
+            // 文件上传区域点击事件
+            if (this.elements.fileUploadArea) {
+                console.log('绑定文件上传区域点击事件');
+                this.elements.fileUploadArea.addEventListener('click', (e) => {
+                    console.log('文件上传区域被点击');
+                    // 阻止事件冒泡，避免重复触发
+                    e.preventDefault();
+                    e.stopPropagation();
+                    this.handleFileSelect();
+                });
+            } else {
+                console.error('文件上传区域元素未找到');
+            }
+            
+            // 文件上传区域拖放事件
+            if (this.elements.fileUploadArea) {
+                this.elements.fileUploadArea.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    this.handleDragOver(e);
+                });
+                
+                this.elements.fileUploadArea.addEventListener('dragleave', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    this.handleDragLeave(e);
+                });
+                
+                this.elements.fileUploadArea.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    this.handleDrop(e);
+                });
+            }
+        },
         
-        // 上传处理按钮点击
-        if (el.uploadProcessBtn) {
-            el.uploadProcessBtn.addEventListener('click', (e) => this.handleUploadProcess(e));
-        }
+        initComponents() {
+            this.updateUIState();
+        },
         
-        // 文件上传区域点击
-        if (el.fileUploadArea) {
-            el.fileUploadArea.addEventListener('click', () => this.handleFileSelect());
-        }
+        initResponseContainer() {
+            if (this.elements.responseContent) {
+                this.elements.responseContent.innerHTML = '';
+                this.elements.responseContent.classList.remove('success', 'error', 'loading');
+            }
+        },
         
-        // 文件上传区域拖放
-        if (el.fileUploadArea) {
-            el.fileUploadArea.addEventListener('dragover', (e) => this.handleDragOver(e));
-            el.fileUploadArea.addEventListener('dragleave', (e) => this.handleDragLeave(e));
-            el.fileUploadArea.addEventListener('drop', (e) => this.handleDrop(e));
-        }
-    },
-    
-    /**
-     * 初始化组件
-     */
-    initComponents: function() {
-        // 更新UI状态
-        this.updateUIState();
-    },
-    
-    /**
-     * 处理文件选择
-     */
-    handleFileSelect: function() {
-        if (this.data.fileInput) {
-            this.data.fileInput.click();
-        }
-    },
-    
-    /**
-     * 处理文件变更
-     */
-    handleFileChange: function(event) {
-        const file = event.target.files[0];
-        if (!file) return;
+        handleFileSelect() {
+            console.log('触发文件选择');
+            if (this.data.fileInput) {
+                this.data.fileInput.click();
+            }
+        },
         
-        // 验证文件
-        if (!this.validateFile(file)) {
-            this.showError('文件格式不支持或文件过大');
-            return;
-        }
-        
-        this.data.uploadedFile = file;
-        this.updateFileUploadArea(file);
-        this.updateUIState();
-    },
-    
-    /**
-     * 验证文件
-     */
-    validateFile: function(file) {
-        // 检查文件大小
-        if (file.size > this.config.maxFileSize) {
-            this.showError(`文件大小不能超过 ${this.config.maxFileSize / 1024 / 1024}MB`);
-            return false;
-        }
-        
-        // 检查文件格式
-        const fileName = file.name.toLowerCase();
-        const isValidFormat = this.config.allowedFormats.some(format => 
-            fileName.endsWith(format)
-        );
-        
-        if (!isValidFormat) {
-            this.showError('只支持 .xlsx 和 .xls 格式的文件');
-            return false;
-        }
-        
-        return true;
-    },
-    
-    /**
-     * 更新文件上传区域显示
-     */
-    updateFileUploadArea: function(file) {
-        const el = this.elements;
-        if (!el.fileUploadArea || !el.uploadIcon || !el.uploadText || !el.uploadFormatHint) return;
-        
-        const fileSize = (file.size / 1024 / 1024).toFixed(2);
-        
-        el.fileUploadArea.classList.add('has-file');
-        el.uploadIcon.className = 'fas fa-file-excel';
-        el.uploadIcon.style.color = '#10b981';
-        el.uploadText.textContent = file.name;
-        el.uploadFormatHint.textContent = `${fileSize} MB`;
-    },
-    
-    /**
-     * 处理拖放
-     */
-    handleDragOver: function(e) {
-        e.preventDefault();
-        e.stopPropagation();
-        
-        const el = this.elements;
-        if (el.fileUploadArea) {
-            el.fileUploadArea.style.borderColor = '#10b981';
-            el.fileUploadArea.style.backgroundColor = 'rgba(16, 185, 129, 0.1)';
-        }
-    },
-    
-    /**
-     * 处理拖放离开
-     */
-    handleDragLeave: function(e) {
-        e.preventDefault();
-        e.stopPropagation();
-        
-        const el = this.elements;
-        if (el.fileUploadArea) {
-            el.fileUploadArea.style.borderColor = '';
-            el.fileUploadArea.style.backgroundColor = '';
-        }
-    },
-    
-    /**
-     * 处理文件拖放
-     */
-    handleDrop: function(e) {
-        e.preventDefault();
-        e.stopPropagation();
-        
-        const el = this.elements;
-        if (el.fileUploadArea) {
-            el.fileUploadArea.style.borderColor = '';
-            el.fileUploadArea.style.backgroundColor = '';
-        }
-        
-        const files = e.dataTransfer.files;
-        if (files.length > 0) {
-            const file = files[0];
+        handleFileChange(event) {
+            console.log('文件选择变更');
+            const file = event.target.files[0];
+            if (!file) {
+                console.log('未选择文件');
+                return;
+            }
+            
+            console.log('选择文件:', file.name, file.size, file.type);
             
             // 验证文件
             if (!this.validateFile(file)) {
@@ -251,472 +190,470 @@ const OrderSummaryModule = {
             this.data.uploadedFile = file;
             this.updateFileUploadArea(file);
             this.updateUIState();
-        }
-    },
-    
-    /**
-     * 处理下载模板
-     */
-    handleDownloadTemplate: async function(e) {
-        e.preventDefault();
+        },
         
-        if (this.data.processing) return;
-        
-        this.setProcessing(true);
-        
-        try {
-            // 调用API
-            const response = await this.downloadTemplateFile();
-            
-            // 处理响应
-            await this.handleTemplateDownloadResponse(response);
-            
-        } catch (error) {
-            console.error('下载模板失败:', error);
-            this.showError(`下载模板失败: ${error.message}`);
-        } finally {
-            this.setProcessing(false);
-        }
-    },
-    
-    /**
-     * 下载模板文件
-     */
-    downloadTemplateFile: async function() {
-        this.showButtonLoading(this.elements.downloadTemplateBtn, '正在下载...');
-        
-        try {
-            const response = await fetch(this.config.api.downloadTemplate, {
-                method: 'GET'
-            });
-            
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => ({}));
-                throw new Error(errorData.msg || `HTTP ${response.status}`);
+        validateFile(file) {
+            // 检查文件大小
+            if (file.size > this.config.maxFileSize) {
+                this.showError(`文件大小不能超过 ${this.config.maxFileSize / 1024 / 1024}MB`);
+                return false;
             }
             
-            return response;
-        } catch (error) {
-            throw new Error(`API调用失败: ${error.message}`);
-        } finally {
-            this.hideButtonLoading(this.elements.downloadTemplateBtn, '<i class="fas fa-cogs"></i> 下载模板文件');
-        }
-    },
-    
-    /**
-     * 处理模板下载响应
-     */
-    handleTemplateDownloadResponse: async function(response) {
-        // 获取文件名
-        const contentDisposition = response.headers.get('content-disposition');
-        let filename = 'budan.xlsx';
-        
-        if (contentDisposition) {
-            const filenameMatch = contentDisposition.match(/filename="(.+)"/);
-            if (filenameMatch && filenameMatch[1]) {
-                filename = decodeURIComponent(filenameMatch[1]);
-            }
-        }
-        
-        // 创建Blob并下载
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        window.URL.revokeObjectURL(url);
-        
-        this.showSuccess(`模板文件下载成功: ${filename}`);
-    },
-    
-    /**
-     * 处理上传并处理数据
-     */
-    handleUploadProcess: async function(e) {
-        e.preventDefault();
-        
-        if (this.data.processing) return;
-        
-        // 验证文件
-        if (!this.data.uploadedFile) {
-            this.showError('请先选择要上传的文件');
-            return;
-        }
-        
-        this.setProcessing(true);
-        
-        try {
-            // 获取负责人
-            const person = this.getSelectedPerson();
+            // 检查文件格式
+            const fileName = file.name.toLowerCase();
+            const isValidFormat = this.config.allowedFormats.some(format => 
+                fileName.endsWith(format)
+            );
             
-            // 创建表单数据
-            const formData = this.createUploadFormData(person);
-            
-            // 调用API
-            const response = await this.uploadAndProcessFile(formData);
-            
-            // 处理响应
-            await this.handleUploadProcessResponse(response);
-            
-        } catch (error) {
-            console.error('上传处理失败:', error);
-            this.showError(`上传处理失败: ${error.message}`);
-        } finally {
-            this.setProcessing(false);
-        }
-    },
-    
-    /**
-     * 获取选择的负责人
-     */
-    getSelectedPerson: function() {
-        const el = this.elements;
-        if (!el.personSelect) return '';
-        
-        return el.personSelect.value || '';
-    },
-    
-    /**
-     * 创建上传表单数据
-     */
-    createUploadFormData: function(person) {
-        const formData = new FormData();
-        formData.append('excel_file', this.data.uploadedFile);
-        
-        // 只有当选择了负责人才传递username参数
-        if (person) {
-            formData.append('username', person);
-        }
-        
-        return formData;
-    },
-    
-    /**
-     * 上传并处理文件
-     */
-    uploadAndProcessFile: async function(formData) {
-        this.showButtonLoading(this.elements.uploadProcessBtn, '正在处理...');
-        
-        try {
-            const response = await fetch(this.config.api.uploadProcess, {
-                method: 'POST',
-                body: formData
-            });
-            
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => ({}));
-                throw new Error(errorData.msg || `HTTP ${response.status}`);
+            if (!isValidFormat) {
+                this.showError('只支持 .xlsx 和 .xls 格式的文件');
+                return false;
             }
             
-            return response;
-        } catch (error) {
-            throw new Error(`API调用失败: ${error.message}`);
-        } finally {
-            this.hideButtonLoading(this.elements.uploadProcessBtn, '<i class="fas fa-rocket"></i> 上传并处理数据');
-        }
-    },
-    
-    /**
-     * 处理上传处理响应
-     */
-    handleUploadProcessResponse: async function(response) {
-        const contentType = response.headers.get('content-type');
+            return true;
+        },
         
-        // 检查是否为错误响应
-        if (contentType && contentType.includes('application/json')) {
-            const errorData = await response.json();
-            throw new Error(errorData.msg || `错误码: ${errorData.code}`);
-        }
-        
-        // 检查是否为Excel文件
-        if (contentType && contentType.includes('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')) {
-            await this.handleResultFileDownload(response);
-        } else {
-            throw new Error('未知的响应类型');
-        }
-    },
-    
-    /**
-     * 处理结果文件下载
-     */
-    handleResultFileDownload: async function(response) {
-        // 获取文件名
-        const contentDisposition = response.headers.get('content-disposition');
-        let filename = '订单汇总结果.xlsx';
-        
-        if (contentDisposition) {
-            const filenameMatch = contentDisposition.match(/filename="(.+)"/);
-            if (filenameMatch && filenameMatch[1]) {
-                filename = decodeURIComponent(filenameMatch[1]);
+        updateFileUploadArea(file) {
+            if (!this.elements.fileUploadArea || !this.elements.uploadIcon || 
+                !this.elements.uploadText || !this.elements.uploadFormatHint) {
+                return;
             }
-        }
+            
+            const fileSize = (file.size / 1024 / 1024).toFixed(2);
+            
+            this.elements.fileUploadArea.classList.add('has-file');
+            this.elements.uploadIcon.className = 'fas fa-file-excel';
+            this.elements.uploadIcon.style.color = '#10b981';
+            this.elements.uploadText.textContent = file.name;
+            this.elements.uploadFormatHint.textContent = `${fileSize} MB`;
+        },
         
-        // 创建Blob并下载
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        window.URL.revokeObjectURL(url);
+        handleDragOver(e) {
+            if (this.elements.fileUploadArea) {
+                this.elements.fileUploadArea.style.borderColor = '#10b981';
+                this.elements.fileUploadArea.style.backgroundColor = 'rgba(16, 185, 129, 0.1)';
+            }
+        },
         
-        // 从响应头获取统计信息
-        this.updateStatsFromHeaders(response.headers);
+        handleDragLeave(e) {
+            if (this.elements.fileUploadArea) {
+                this.elements.fileUploadArea.style.borderColor = '';
+                this.elements.fileUploadArea.style.backgroundColor = '';
+            }
+        },
         
-        // 显示成功消息
-        this.showSuccess(`文件处理完成，结果已下载: ${filename}`);
-    },
-    
-    /**
-     * 从响应头更新统计信息
-     */
-    updateStatsFromHeaders: function(headers) {
-        const el = this.elements;
+        handleDrop(e) {
+            if (this.elements.fileUploadArea) {
+                this.elements.fileUploadArea.style.borderColor = '';
+                this.elements.fileUploadArea.style.backgroundColor = '';
+            }
+            
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                const file = files[0];
+                
+                if (!this.validateFile(file)) {
+                    return;
+                }
+                
+                this.data.uploadedFile = file;
+                this.updateFileUploadArea(file);
+                this.updateUIState();
+            }
+        },
         
-        // 获取店铺数量
-        const shopCount = headers.get('X-Shop-Count');
-        if (shopCount && el.shopCountValue) {
-            el.shopCountValue.textContent = parseInt(shopCount).toLocaleString();
-        }
+        async handleDownloadTemplate(e) {
+            e.preventDefault();
+            console.log('开始处理下载模板请求');
+            
+            if (this.data.processing) {
+                console.log('当前有处理中的请求，跳过');
+                return;
+            }
+            
+            this.setProcessing(true);
+            
+            try {
+                this.showProcessing('正在下载模板文件...');
+                const response = await this.downloadTemplateFile();
+                await this.handleTemplateDownloadResponse(response);
+            } catch (error) {
+                console.error('下载模板失败:', error);
+                this.showError(`下载模板失败: ${error.message}`);
+            } finally {
+                this.setProcessing(false);
+            }
+        },
         
-        // 获取去重后总订单数
-        const totalUniqueOrder = headers.get('X-Total-Unique-Order');
-        if (totalUniqueOrder && el.totalOrderValue) {
-            el.totalOrderValue.textContent = parseInt(totalUniqueOrder).toLocaleString();
-        }
+        async downloadTemplateFile() {
+            this.showButtonLoading(this.elements.downloadTemplateBtn, '正在下载...');
+            
+            try {
+                console.log('发送下载模板请求到:', this.config.api.downloadTemplate);
+                const response = await fetch(this.config.api.downloadTemplate, {
+                    method: 'GET'
+                });
+                
+                console.log('收到API响应:', response.status, response.statusText);
+                
+                if (!response.ok) {
+                    let errorMsg = `请求失败 (${response.status})`;
+                    try {
+                        const errorData = await response.json();
+                        errorMsg = errorData.msg || errorMsg;
+                    } catch (e) {
+                        // 忽略JSON解析错误
+                    }
+                    throw new Error(errorMsg);
+                }
+                
+                return response;
+            } finally {
+                this.hideButtonLoading(this.elements.downloadTemplateBtn);
+            }
+        },
         
-        // 获取去重后总金额
-        const totalUniqueAmount = headers.get('X-Total-Unique-Amount');
-        if (totalUniqueAmount && el.totalAmountValue) {
-            const amount = parseFloat(totalUniqueAmount);
-            el.totalAmountValue.textContent = '¥' + amount.toLocaleString('zh-CN', {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2
-            });
-        }
+        async handleTemplateDownloadResponse(response) {
+            const contentType = response.headers.get('content-type') || '';
+            
+            if (contentType.includes('application/json')) {
+                const responseData = await response.json();
+                console.log('收到JSON响应数据:', responseData);
+                
+                if (responseData.code !== 0) {
+                    throw new Error(responseData.msg || '下载模板失败');
+                }
+                
+                if (responseData.data && responseData.data.base64_content) {
+                    await this.handleBase64FileDownload(
+                        responseData.data.base64_content, 
+                        '订单模板.xlsx'
+                    );
+                    this.showSuccess(responseData.msg || '模板下载成功');
+                } else {
+                    throw new Error('模板文件内容为空');
+                }
+            } else {
+                throw new Error('未知的响应类型');
+            }
+        },
         
-        // 获取重复订单数
-        const duplicateCount = headers.get('X-Duplicate-Count');
-        if (duplicateCount && el.duplicateOrderValue) {
-            el.duplicateOrderValue.textContent = parseInt(duplicateCount);
-        }
+        async handleUploadProcess(e) {
+            e.preventDefault();
+            console.log('开始处理上传订单数据请求');
+            
+            if (this.data.processing) {
+                console.log('当前有处理中的请求，跳过');
+                return;
+            }
+            
+            if (!this.data.uploadedFile) {
+                this.showError('请先选择要上传的文件');
+                return;
+            }
+            
+            this.setProcessing(true);
+            
+            try {
+                const person = this.getSelectedPerson();
+                const formData = this.createUploadFormData(person);
+                
+                this.showProcessing('正在上传并处理订单数据...');
+                const response = await this.uploadAndProcessFile(formData);
+                await this.handleUploadProcessResponse(response);
+            } catch (error) {
+                console.error('上传处理失败:', error);
+                this.showError(`上传处理失败: ${error.message}`);
+            } finally {
+                this.setProcessing(false);
+            }
+        },
         
-        // 添加动画效果
-        if (el.dataCards) {
-            el.dataCards.forEach(card => {
-                card.classList.add('updated');
+        getSelectedPerson() {
+            if (!this.elements.personSelect) return '';
+            return this.elements.personSelect.value || '';
+        },
+        
+        createUploadFormData(person) {
+            const formData = new FormData();
+            formData.append('excel_file', this.data.uploadedFile);
+            
+            if (person) {
+                formData.append('username', person);
+            }
+            
+            return formData;
+        },
+        
+        async uploadAndProcessFile(formData) {
+            this.showButtonLoading(this.elements.uploadProcessBtn, '正在处理...');
+            
+            try {
+                console.log('发送上传处理请求到:', this.config.api.uploadProcess);
+                const response = await fetch(this.config.api.uploadProcess, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                console.log('收到API响应:', response.status, response.statusText);
+                
+                if (!response.ok) {
+                    let errorMsg = `请求失败 (${response.status})`;
+                    try {
+                        const errorData = await response.json();
+                        errorMsg = errorData.msg || errorMsg;
+                    } catch (e) {
+                        // 忽略JSON解析错误
+                    }
+                    throw new Error(errorMsg);
+                }
+                
+                return response;
+            } finally {
+                this.hideButtonLoading(this.elements.uploadProcessBtn);
+            }
+        },
+        
+        async handleUploadProcessResponse(response) {
+            const contentType = response.headers.get('content-type') || '';
+            
+            if (contentType.includes('application/json')) {
+                const responseData = await response.json();
+                console.log('收到订单处理响应数据:', responseData);
+                
+                if (responseData.code !== 0) {
+                    throw new Error(responseData.msg || '订单处理失败');
+                }
+                
+                const data = responseData.data || {};
+                
+                // 生成文件名：fills_name + 补单订单汇总表.xlsx
+                const fileName = data.fills_name ? 
+                    `${data.fills_name}补单订单汇总表.xlsx` : 
+                    '补单订单汇总表.xlsx';
+                
+                // 处理Base64文件下载
+                if (data.base64_content) {
+                    await this.handleBase64FileDownload(data.base64_content, fileName);
+                }
+                
+                // 更新统计信息
+                this.updateStatsFromData(data);
+                
+                // 显示成功消息
+                this.showSuccess(responseData.msg || '订单处理完成');
+            } else {
+                throw new Error('未知的响应类型');
+            }
+        },
+        
+        async handleBase64FileDownload(base64Content, fileName) {
+            if (!base64Content) {
+                throw new Error('文件内容为空');
+            }
+            
+            try {
+                const cleanBase64 = base64Content.replace(/^data:[^;]+;base64,/, '');
+                
+                if (!/^[A-Za-z0-9+/=]+$/.test(cleanBase64)) {
+                    throw new Error('Base64内容格式无效');
+                }
+                
+                const binaryString = atob(cleanBase64);
+                const bytes = new Uint8Array(binaryString.length);
+                
+                for (let i = 0; i < binaryString.length; i++) {
+                    bytes[i] = binaryString.charCodeAt(i);
+                }
+                
+                const blob = new Blob([bytes], {
+                    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+                });
+                
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = fileName;
+                document.body.appendChild(a);
+                a.click();
+                
                 setTimeout(() => {
-                    card.classList.remove('updated');
-                }, 1000);
-            });
-        }
-    },
-    
-    /**
-     * 清除已上传的文件
-     */
-    clearUploadedFile: function() {
-        this.data.uploadedFile = null;
-        
-        if (this.data.fileInput) {
-            this.data.fileInput.value = '';
-        }
-        
-        const el = this.elements;
-        if (el.fileUploadArea && el.uploadIcon && el.uploadText && el.uploadFormatHint) {
-            el.fileUploadArea.classList.remove('has-file');
-            el.uploadIcon.className = 'fas fa-cloud-upload-alt';
-            el.uploadIcon.style.color = '';
-            el.uploadText.textContent = '点击或拖拽文件上传';
-            el.uploadFormatHint.textContent = '支持 .xlsx, .xls 格式';
-        }
-        
-        this.updateUIState();
-        this.showInfo('已清除上传的文件');
-    },
-    
-    /**
-     * 显示成功消息
-     */
-    showSuccess: function(message) {
-        console.log('成功:', message);
-        
-        // 在按钮组上方显示临时成功提示
-        this.showTemporaryMessage(message, 'success');
-    },
-    
-    /**
-     * 显示错误消息
-     */
-    showError: function(message) {
-        console.error('错误:', message);
-        
-        // 在按钮组上方显示临时错误提示
-        this.showTemporaryMessage(message, 'error');
-    },
-    
-    /**
-     * 显示信息消息
-     */
-    showInfo: function(message) {
-        console.info('信息:', message);
-        
-        // 在按钮组上方显示临时信息提示
-        this.showTemporaryMessage(message, 'info');
-    },
-    
-    /**
-     * 显示临时消息提示
-     */
-    showTemporaryMessage: function(message, type) {
-        const el = this.elements;
-        if (!el.container) return;
-        
-        // 移除已存在的临时消息
-        const existingMessage = el.container.querySelector('.temporary-message');
-        if (existingMessage) {
-            existingMessage.remove();
-        }
-        
-        // 创建消息元素
-        const messageDiv = document.createElement('div');
-        messageDiv.className = `temporary-message temporary-message-${type}`;
-        
-        // 根据类型设置图标和样式
-        let iconClass = 'info-circle';
-        if (type === 'success') iconClass = 'check-circle';
-        if (type === 'error') iconClass = 'exclamation-triangle';
-        
-        messageDiv.innerHTML = `
-            <i class="fas fa-${iconClass}"></i>
-            <span>${message}</span>
-        `;
-        
-        // 在按钮组前插入消息
-        if (el.container.querySelector('.btn-group-2')) {
-            el.container.querySelector('.btn-group-2').before(messageDiv);
-        } else {
-            el.container.appendChild(messageDiv);
-        }
-        
-        // 3秒后自动移除
-        setTimeout(() => {
-            if (messageDiv.parentNode) {
-                messageDiv.remove();
+                    document.body.removeChild(a);
+                    window.URL.revokeObjectURL(url);
+                }, 100);
+                
+            } catch (error) {
+                console.error('文件下载失败:', error);
+                throw new Error(`文件下载失败: ${error.message}`);
             }
-        }, 3000);
-    },
+        },
+        
+        updateStatsFromData(data) {
+            // 店铺数量
+            if (this.elements.shopCountValue) {
+                this.elements.shopCountValue.textContent = data.shop_count || 0;
+            }
+            
+            // 总订单数
+            if (this.elements.totalOrderValue) {
+                this.elements.totalOrderValue.textContent = data.total_unique_order || 0;
+            }
+            
+            // 总金额
+            if (this.elements.totalAmountValue) {
+                const amount = data.total_unique_amount || 0;
+                this.elements.totalAmountValue.textContent = '¥' + 
+                    amount.toLocaleString('zh-CN', {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2
+                    });
+            }
+            
+            // 重复订单
+            if (this.elements.duplicateOrderValue) {
+                this.elements.duplicateOrderValue.textContent = data.duplicate_count || 0;
+            }
+            
+            console.log('数据卡片已更新:', data);
+        },
+        
+        showProcessing(message = '正在处理...') {
+            if (this.elements.responseContent) {
+                this.elements.responseContent.textContent = message;
+                this.elements.responseContent.classList.remove('success', 'error');
+                this.elements.responseContent.classList.add('loading');
+            }
+        },
+        
+        showSuccess(message = '操作成功') {
+            if (this.elements.responseContent) {
+                this.elements.responseContent.textContent = message;
+                this.elements.responseContent.classList.remove('loading', 'error');
+                this.elements.responseContent.classList.add('success');
+            }
+        },
+        
+        showError(message = '操作失败') {
+            if (this.elements.responseContent) {
+                this.elements.responseContent.textContent = message;
+                this.elements.responseContent.classList.remove('loading', 'success');
+                this.elements.responseContent.classList.add('error');
+            }
+        },
+        
+        setProcessing(isProcessing) {
+            this.data.processing = isProcessing;
+            
+            if (this.elements.uploadProcessBtn) {
+                this.elements.uploadProcessBtn.disabled = isProcessing;
+            }
+            
+            if (this.elements.downloadTemplateBtn) {
+                this.elements.downloadTemplateBtn.disabled = isProcessing;
+            }
+        },
+        
+        updateUIState() {
+            const hasFile = !!this.data.uploadedFile;
+            
+            if (this.elements.uploadProcessBtn) {
+                this.elements.uploadProcessBtn.disabled = !hasFile || this.data.processing;
+            }
+        },
+        
+        showButtonLoading(button, loadingText) {
+            if (!button) return;
+            
+            const originalText = button.innerHTML;
+            button.setAttribute('data-original-text', originalText);
+            button.innerHTML = `<i class="fas fa-spinner fa-spin"></i> ${loadingText || '处理中...'}`;
+            button.disabled = true;
+        },
+        
+        hideButtonLoading(button) {
+            if (!button) return;
+            
+            const originalText = button.getAttribute('data-original-text');
+            if (originalText) {
+                button.innerHTML = originalText;
+                button.removeAttribute('data-original-text');
+            }
+            button.disabled = false;
+        },
+        
+        reset() {
+            // 清除上传的文件
+            this.clearUploadedFile();
+            
+            // 重置负责人选择
+            if (this.elements.personSelect) {
+                this.elements.personSelect.value = '';
+            }
+            
+            // 重置数据卡片
+            this.updateStatsFromData({
+                shop_count: 0,
+                total_unique_order: 0,
+                total_unique_amount: 0,
+                duplicate_count: 0
+            });
+            
+            // 重置响应容器
+            this.initResponseContainer();
+            
+            console.log('模块已重置');
+        },
+        
+        clearUploadedFile() {
+            this.data.uploadedFile = null;
+            
+            if (this.data.fileInput) {
+                this.data.fileInput.value = '';
+            }
+            
+            if (this.elements.fileUploadArea && this.elements.uploadIcon && 
+                this.elements.uploadText && this.elements.uploadFormatHint) {
+                this.elements.fileUploadArea.classList.remove('has-file');
+                this.elements.uploadIcon.className = 'fas fa-cloud-upload-alt';
+                this.elements.uploadIcon.style.color = '';
+                this.elements.uploadText.textContent = '点击或拖拽文件上传';
+                this.elements.uploadFormatHint.textContent = '支持 .xlsx, .xls 格式';
+            }
+            
+            this.updateUIState();
+        },
+        
+        destroy() {
+            if (this.elements.downloadTemplateBtn) {
+                this.elements.downloadTemplateBtn.replaceWith(
+                    this.elements.downloadTemplateBtn.cloneNode(true)
+                );
+            }
+            
+            if (this.elements.uploadProcessBtn) {
+                this.elements.uploadProcessBtn.replaceWith(
+                    this.elements.uploadProcessBtn.cloneNode(true)
+                );
+            }
+            
+            if (this.data.fileInput && document.body) {
+                document.body.removeChild(this.data.fileInput);
+            }
+            
+            this.data.initialized = false;
+        }
+    };
     
-    /**
-     * 显示按钮加载状态
-     */
-    showButtonLoading: function(button, loadingText) {
-        if (!button) return;
-        
-        const originalText = button.innerHTML;
-        button.setAttribute('data-original-text', originalText);
-        button.innerHTML = `
-            <i class="fas fa-spinner fa-spin"></i> ${loadingText}
-        `;
-        button.disabled = true;
-    },
-    
-    /**
-     * 隐藏按钮加载状态
-     */
-    hideButtonLoading: function(button, defaultText) {
-        if (!button) return;
-        
-        const originalText = button.getAttribute('data-original-text');
-        if (originalText) {
-            button.innerHTML = originalText;
-        } else if (defaultText) {
-            button.innerHTML = defaultText;
-        }
-        button.disabled = false;
-    },
-    
-    /**
-     * 设置处理状态
-     */
-    setProcessing: function(isProcessing) {
-        this.data.processing = isProcessing;
-        this.updateUIState();
-    },
-    
-    /**
-     * 更新UI状态
-     */
-    updateUIState: function() {
-        const el = this.elements;
-        const hasFile = !!this.data.uploadedFile;
-        
-        // 更新按钮状态
-        if (el.uploadProcessBtn) {
-            el.uploadProcessBtn.disabled = !hasFile || this.data.processing;
-        }
-        
-        if (el.downloadTemplateBtn) {
-            el.downloadTemplateBtn.disabled = this.data.processing;
-        }
-    },
-    
-    /**
-     * 重置模块
-     */
-    reset: function() {
-        // 清除上传的文件
-        this.clearUploadedFile();
-        
-        // 重置负责人选择
-        const el = this.elements;
-        if (el.personSelect) {
-            el.personSelect.value = '';
-        }
-        
-        // 重置数据卡片为初始值
-        if (el.shopCountValue) el.shopCountValue.textContent = '48';
-        if (el.totalOrderValue) el.totalOrderValue.textContent = '1,204';
-        if (el.totalAmountValue) el.totalAmountValue.textContent = '¥58,430';
-        if (el.duplicateOrderValue) el.duplicateOrderValue.textContent = '0';
-        
-        this.showInfo('模块已重置');
-    },
-    
-    /**
-     * 销毁模块
-     */
-    destroy: function() {
-        // 清理事件监听器
-        const el = this.elements;
-        if (el.downloadTemplateBtn) {
-            el.downloadTemplateBtn.removeEventListener('click', this.handleDownloadTemplate);
-        }
-        if (el.uploadProcessBtn) {
-            el.uploadProcessBtn.removeEventListener('click', this.handleUploadProcess);
-        }
-        if (el.fileUploadArea) {
-            el.fileUploadArea.removeEventListener('click', this.handleFileSelect);
-        }
-        
-        // 清理文件输入框
-        if (this.data.fileInput && document.body) {
-            document.body.removeChild(this.data.fileInput);
-        }
-        
-        console.log('订单汇总模块已销毁');
-    }
-};
+    window.OrderSummaryModule = OrderSummaryModule;
+})();
 
-// 全局初始化函数
 function initorder_summary(container) {
-    OrderSummaryModule.init(container);
+    if (typeof window.OrderSummaryModule !== 'undefined' && 
+        !window.OrderSummaryModule.data.initialized) {
+        window.OrderSummaryModule.init(container);
+    } else if (window.OrderSummaryModule.data.initialized) {
+        console.log('订单汇总模块已初始化，跳过重复初始化');
+    } else {
+        console.error('OrderSummaryModule未定义，请确保order_summary_fixed.js已正确加载');
+    }
 }
-
-// 确保模块在全局可用
-window.OrderSummaryModule = OrderSummaryModule;

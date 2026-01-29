@@ -3,8 +3,6 @@ package handler
 import (
 	"go-gin/internal/service"
 	"go-gin/pkg/response"
-	"net/url"
-	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -13,22 +11,15 @@ import (
 // DownloadOrderTemplate 下载订单汇总模板
 func DownloadOrderTemplate(c *gin.Context) {
 	// 获取模板文件字节流
-	templateBytes, err := service.DownloadTemplate()
+	base64Content, err := service.DownloadTemplate()
 	if err != nil {
 		response.Fail(c, 500, "生成模板文件失败："+err.Error())
 		return
 	}
-
-	// 设置响应头触发下载
-	fileName := url.QueryEscape("budan.xlsx")
-	c.Header("Content-Description", "File Transfer")
-	c.Header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-	c.Header("Content-Disposition", "attachment; filename*=UTF-8''"+fileName)
-	c.Header("Content-Length", strconv.Itoa(len(templateBytes)))
-	c.Header("Cache-Control", "no-cache")
-
-	// 返回文件内容
-	c.Data(200, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", templateBytes)
+	response.Success(c, gin.H{
+		"message":        "模板文件生成成功",
+		"base64_content": base64Content,
+	})
 }
 
 // UploadAndProcessOrderExcel 上传并处理订单Excel文件
@@ -75,36 +66,20 @@ func UploadAndProcessOrderExcel(c *gin.Context) {
 	}
 
 	// 4. 处理Excel文件
-	resultFileBytes, summaryResult, err := service.ProcessOrderExcel(buf)
+	base64Content, summaryResult, err := service.ProcessOrderExcel(buf, userName)
 	if err != nil {
 		response.Fail(c, 500, "处理订单数据失败："+err.Error())
 		return
 	}
-
-	// 5. 新增：动态生成文件名
-	var fileName string
-	if userName != "" {
-		// 有选中人名：XXX+订单汇总结果.xlsx
-		fileName = url.QueryEscape(userName + "订单汇总结果.xlsx")
-	} else {
-		// 无选中人名：默认订单汇总结果.xlsx
-		fileName = url.QueryEscape("订单汇总结果.xlsx")
-	}
-
-	// 6. 设置响应头，返回结果文件并携带统计信息
-	c.Header("Content-Description", "File Transfer")
-	c.Header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-	c.Header("Content-Disposition", "attachment; filename*=UTF-8''"+fileName) // 使用动态文件名
-	c.Header("Content-Length", strconv.Itoa(len(resultFileBytes)))
-	c.Header("Cache-Control", "no-cache")
-
-	// 自定义响应头传递统计信息（供前端展示）
-	c.Header("X-Shop-Count", strconv.Itoa(summaryResult.ShopCount))
-	c.Header("X-Total-Unique-Order", strconv.Itoa(summaryResult.TotalUniqueOrder))
-	c.Header("X-Total-Unique-Amount", strconv.FormatFloat(summaryResult.TotalUniqueAmount, 'f', 2, 64))
-	c.Header("X-Total-Order-Count", strconv.Itoa(summaryResult.TotalOrderCount))
-	c.Header("X-Duplicate-Count", strconv.Itoa(summaryResult.DuplicateCount))
-
-	// 7. 返回结果文件
-	c.Data(200, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", resultFileBytes)
+	response.SuccessWithMessage(c, "补单订单汇总已完成", gin.H{
+		"base64_content":      base64Content,
+		"fills_name":          summaryResult.FillsName,
+		"total_unique_order":  summaryResult.TotalUniqueOrder,
+		"total_unique_amount": summaryResult.TotalUniqueAmount,
+		"total_order_count":   summaryResult.TotalOrderCount,
+		"duplicate_count":     summaryResult.DuplicateCount,
+		"duplicate_messages":  summaryResult.DuplicateMessages,
+		"shop_count":          summaryResult.ShopCount,
+		"message":             summaryResult.Message,
+	})
 }

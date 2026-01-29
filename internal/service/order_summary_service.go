@@ -2,6 +2,7 @@ package service
 
 import (
 	"bytes" // 新增：导入bytes包
+	"encoding/base64"
 	"fmt"
 	"log"
 	"strconv"
@@ -25,6 +26,8 @@ type ShopOrder struct {
 }
 
 type OrderSummaryResult struct {
+	FillsName         string   `json:"fills_name"`          // 文件名前缀
+	Message           string   `json:"message"`             // 处理提示信息
 	TotalUniqueOrder  int      `json:"total_unique_order"`  // 去重后总订单数
 	TotalUniqueAmount float64  `json:"total_unique_amount"` // 去重后总金额
 	TotalOrderCount   int      `json:"total_order_count"`   // 全量订单数（含重复）
@@ -51,59 +54,84 @@ func removeDefaultSheet1(f *excelize.File) error {
 }
 
 // DownloadTemplate 生成并返回订单汇总模板文件（budan.xlsx）
-func DownloadTemplate() ([]byte, error) {
-	// 创建新的Excel文件作为模板
+// DownloadTemplate 下载Excel模板函数
+func DownloadTemplate() (string, error) {
+	// 1. 创建新的Excel文件
 	f := excelize.NewFile()
 
-	// 核心修改1：创建文件后立即删除Sheet1（提前删除，避免残留）
-	if err := removeDefaultSheet1(f); err != nil {
-		return nil, err
-	}
-
-	// 创建模板工作表
+	// 2. 先创建模板工作表
 	sheetName := "订单数据模板"
 	idx, err := f.NewSheet(sheetName)
 	if err != nil {
-		return nil, fmt.Errorf("创建模板工作表失败：%v", err)
+		return "", fmt.Errorf("创建模板工作表失败：%v", err)
 	}
 	f.SetActiveSheet(idx)
 
-	// 写入表头（A:店铺名称, B:订单号, C:订单金额）
+	// 3. 写入表头
 	headers := []string{"店铺名称", "订单号", "订单金额"}
 	for colIdx, header := range headers {
 		cell := fmt.Sprintf("%c%d", 'A'+colIdx, 1)
-		f.SetCellValue(sheetName, cell, header)
+		if err := f.SetCellValue(sheetName, cell, header); err != nil {
+			return "", fmt.Errorf("写入表头失败：%v", err)
+		}
 	}
 
-	// 写入示例行（可选，方便用户理解）
-	f.SetCellValue(sheetName, "A2", "示例店铺1")
-	f.SetCellValue(sheetName, "B2", "NO123456")
-	f.SetCellValue(sheetName, "C2", "100.00")
-	f.SetCellValue(sheetName, "A3", "示例店铺2")
-	f.SetCellValue(sheetName, "B3", "NO789012")
-	f.SetCellValue(sheetName, "C3", "200.50")
+	// 4. 设置列宽，使Excel看起来更美观
+	f.SetColWidth(sheetName, "A", "A", 20) // 店铺名称列宽
+	f.SetColWidth(sheetName, "B", "B", 20) // 订单号列宽
+	f.SetColWidth(sheetName, "C", "C", 15) // 订单金额列宽
 
-	// 保存前再次验证：确保没有Sheet1
-	if err := removeDefaultSheet1(f); err != nil {
-		return nil, err
+	// 5. 写入示例数据
+	examples := [][]interface{}{
+		{"示例店铺1", "NO123456", 100.00},
+		{"示例店铺2", "NO789012", 200.50},
+		{"示例店铺3", "NO345678", 150.75},
 	}
 
-	// 保存到字节流
-	buf, err := f.WriteToBuffer()
-	if err != nil {
-		return nil, fmt.Errorf("生成模板文件失败：%v", err)
+	for rowIdx, example := range examples {
+		for colIdx, value := range example {
+			cell := fmt.Sprintf("%c%d", 'A'+colIdx, rowIdx+2) // 从第2行开始
+			if err := f.SetCellValue(sheetName, cell, value); err != nil {
+				return "", fmt.Errorf("写入示例数据失败：%v", err)
+			}
+		}
 	}
 
-	return buf.Bytes(), nil
+	// 6. 删除默认的Sheet1工作表
+	// 注意：因为已经创建了"订单数据模板"工作表，所以可以直接删除Sheet1
+	sheetList := f.GetSheetList()
+	for _, sheet := range sheetList {
+		if sheet == "Sheet1" {
+			if err := f.DeleteSheet("Sheet1"); err != nil {
+				return "", fmt.Errorf("删除默认Sheet1失败：%v", err)
+			}
+			break
+		}
+	}
+
+	// 7. 验证工作表数量
+	if len(f.GetSheetList()) == 0 {
+		return "", fmt.Errorf("Excel文件至少需要一个工作表")
+	}
+
+	// 8. 保存到缓冲区
+	buf := new(bytes.Buffer)
+	if err := f.Write(buf); err != nil {
+		return "", fmt.Errorf("保存Excel到缓冲区失败：%v", err)
+	}
+
+	// 9. 转换为Base64
+	base64Content := base64.StdEncoding.EncodeToString(buf.Bytes())
+	return base64Content, nil
 }
 
 // ProcessOrderExcel 处理上传的订单Excel文件，返回结果文件和统计信息
-func ProcessOrderExcel(fileBytes []byte) ([]byte, *OrderSummaryResult, error) {
+func ProcessOrderExcel(fileBytes []byte, fillsname string) (string, *OrderSummaryResult, error) {
 	// 1. 解析上传的Excel文件 - 修复类型不匹配问题
 	reader := bytes.NewReader(fileBytes) // 将[]byte包装成io.Reader
 	f, err := excelize.OpenReader(reader)
 	if err != nil {
-		return nil, nil, fmt.Errorf("解析上传文件失败：%v", err)
+		return "", nil, fmt.Errorf("解析上传文件失败：%v", err)
 	}
 	defer f.Close()
 
@@ -111,11 +139,11 @@ func ProcessOrderExcel(fileBytes []byte) ([]byte, *OrderSummaryResult, error) {
 	sheetName := f.GetSheetName(0)
 	rows, err := f.GetRows(sheetName)
 	if err != nil {
-		return nil, nil, fmt.Errorf("读取工作表数据失败：%v", err)
+		return "", nil, fmt.Errorf("读取工作表数据失败：%v", err)
 	}
 	// 修复：仅当行数为0时判定为无数据
 	if len(rows) == 0 {
-		return nil, nil, fmt.Errorf("上传文件无数据")
+		return "", nil, fmt.Errorf("上传文件无数据")
 	}
 	// 新增：检查是否只有表头无数据行
 	hasDataRow := false
@@ -130,7 +158,7 @@ func ProcessOrderExcel(fileBytes []byte) ([]byte, *OrderSummaryResult, error) {
 		}
 	}
 	if !hasDataRow {
-		return nil, nil, fmt.Errorf("上传文件仅有表头，无有效数据行")
+		return "", nil, fmt.Errorf("上传文件仅有表头，无有效数据行")
 	}
 
 	// 3. 定位核心列索引
@@ -149,7 +177,7 @@ func ProcessOrderExcel(fileBytes []byte) ([]byte, *OrderSummaryResult, error) {
 		}
 	}
 	if colShopName == -1 || colOrderID == -1 || colAmount == -1 {
-		return nil, nil, fmt.Errorf("未找到指定列（店铺名称/订单号/订单金额），请检查表头是否正确")
+		return "", nil, fmt.Errorf("未找到指定列（店铺名称/订单号/订单金额），请检查表头是否正确")
 	}
 
 	// ========== 功能1：去重汇总 ==========
@@ -297,14 +325,14 @@ func ProcessOrderExcel(fileBytes []byte) ([]byte, *OrderSummaryResult, error) {
 
 	// 核心修改2：创建结果文件后立即删除Sheet1
 	if err := removeDefaultSheet1(targetFile); err != nil {
-		return nil, nil, err
+		return "", nil, err
 	}
 
 	// 子表1：去重汇总表
 	sheet1Name := "店铺订单_去重汇总"
 	idx1, err := targetFile.NewSheet(sheet1Name)
 	if err != nil {
-		return nil, nil, fmt.Errorf("创建去重汇总工作表失败：%v", err)
+		return "", nil, fmt.Errorf("创建去重汇总工作表失败：%v", err)
 	}
 	targetFile.SetActiveSheet(idx1)
 
@@ -325,19 +353,11 @@ func ProcessOrderExcel(fileBytes []byte) ([]byte, *OrderSummaryResult, error) {
 		targetFile.SetCellValue(sheet1Name, fmt.Sprintf("D%d", rowIdx1), summary.UniqueAmount)
 		rowIdx1++
 	}
-
-	// ========== 已删除：去重汇总总计行的写入逻辑 ==========
-	// 注释/删除以下原总计行代码，不再写入Excel
-	// totalRow1 := rowIdx1
-	// targetFile.SetCellValue(sheet1Name, fmt.Sprintf("A%d", totalRow1), "总计")
-	// targetFile.SetCellValue(sheet1Name, fmt.Sprintf("C%d", totalRow1), totalUniqueOrder)
-	// targetFile.SetCellValue(sheet1Name, fmt.Sprintf("D%d", totalRow1), totalUniqueAmount)
-
 	// 子表2：全量汇总表
 	sheet2Name := "店铺订单_全量汇总"
 	_, err = targetFile.NewSheet(sheet2Name)
 	if err != nil {
-		return nil, nil, fmt.Errorf("创建全量汇总工作表失败：%v", err)
+		return "", nil, fmt.Errorf("创建全量汇总工作表失败：%v", err)
 	}
 
 	// 写入全量汇总表头
@@ -371,15 +391,21 @@ func ProcessOrderExcel(fileBytes []byte) ([]byte, *OrderSummaryResult, error) {
 
 	// 保存前再次验证：确保结果文件没有Sheet1
 	if err := removeDefaultSheet1(targetFile); err != nil {
-		return nil, nil, err
+		return "", nil, err
 	}
 
-	// 保存结果文件到字节流
-	buf, err := targetFile.WriteToBuffer()
-	if err != nil {
-		return nil, nil, fmt.Errorf("生成结果文件失败：%v", err)
+	buf := new(bytes.Buffer)
+	if err := targetFile.Write(buf); err != nil {
+		return "", nil, fmt.Errorf("保存结果Excel到缓冲区失败：%v", err)
 	}
-
+	base64Content := base64.StdEncoding.EncodeToString(buf.Bytes())
+	// 组装提示信息
+	var message string
+	if fillsname == "" {
+		message = "成功：个人补单订单汇总已完成，结果已下载: 订单汇总结果.xlsx"
+	} else {
+		message = fmt.Sprintf("%s 补单订单汇总已完成，结果已下载: %s订单汇总结果.xlsx", fillsname, fillsname)
+	}
 	// 组装返回结果（总计数据仍保留在返回结构体中，仅不写入Excel）
 	result := &OrderSummaryResult{
 		TotalUniqueOrder:  totalUniqueOrder,
@@ -388,7 +414,9 @@ func ProcessOrderExcel(fileBytes []byte) ([]byte, *OrderSummaryResult, error) {
 		DuplicateCount:    len(duplicateOrders),
 		DuplicateMessages: duplicateOrders,
 		ShopCount:         len(shopMapSummary),
+		Message:           message,
+		FillsName:         fillsname,
 	}
 
-	return buf.Bytes(), result, nil
+	return base64Content, result, nil
 }
