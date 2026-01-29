@@ -42,36 +42,37 @@
         </div>
     </div>
 
+    <!-- 数据卡片：已补充4个数值元素ID -->
     <div class="data-cards-4">
         <div class="data-card">
-            <div class="data-value">0</div>
+            <div class="data-value" id="data-row">0</div>
             <div class="data-label">处理行数</div>
         </div>
         <div class="data-card">
-            <div class="data-value">0</div>
+            <div class="data-value" id="data-file">0</div>
             <div class="data-label">处理文件数量</div>
         </div>
         <div class="data-card">
-            <div class="data-value">0</div>
+            <div class="data-value" id="data-skip">0</div>
             <div class="data-label">跳过文件数量</div>
         </div>
         <div class="data-card">
-            <div class="data-value">0</div>
+            <div class="data-value" id="data-sum">0</div>
             <div class="data-label">求和汇总</div>
         </div>
     </div>
 
-
+    <!-- 操作结果：已补充内容区ID -->
     <div class="response-container-lg">
         <label class="form-label">
             <i class="fas fa-terminal"></i>
             操作结果
         </label>
-        <div class="response-content">
+        <div class="response-content" id="excel-response-content">
             <!-- 初始空白，无占位文字 -->
         </div>
     </div>
-    
+
     <button class="btn btn-primary" id="excel-process-btn">
         <i class="fas fa-cogs"></i>
         开始分组汇总

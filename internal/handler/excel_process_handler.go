@@ -65,16 +65,16 @@ func (h *ExcelHandler) ProcessExcel(c *gin.Context) {
 		return
 	}
 	response.SuccessWithMessage(c, "文件分组汇总完成", gin.H{
-		"total_count":    resp.TotalCount,
-		"grouped_data":   resp.GroupedData,
-		"message":        resp.Message,
-		"total_all_num":  resp.TotalAllNum,
-		"total_all_amt":  resp.TotalAllAmt,
-		"processed":      resp.Processed,
-		"skipped":        resp.Skipped,
-		"xlsx_count":     resp.XlsxCount,
-		"xls_count":      resp.XlsCount,
-		"base64_content": resp.Base64Content,
+		"total_count":    resp.TotalCount,    // 总处理行数
+		"grouped_data":   resp.GroupedData,   // 分组数据
+		"message":        resp.Message,       // 处理消息
+		"total_all_num":  resp.TotalAllNum,   // 总数量
+		"total_all_amt":  resp.TotalAllAmt,   // 求和汇总
+		"processed":      resp.Processed,     // 处理文件数
+		"skipped":        resp.Skipped,       // 跳过文件数
+		"xlsx_count":     resp.XlsxCount,     // 处理的xlsx文件数
+		"xls_count":      resp.XlsCount,      // 处理的xls文件数
+		"base64_content": resp.Base64Content, // Base64编码的Excel文件内容
 	})
 
 	// 9. 日志记录
