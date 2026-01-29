@@ -211,6 +211,11 @@ func StockStatistic(req StockStatisticRequest) (*StockStatisticResponse, error) 
 		return nil, fmt.Errorf("转换列索引失败：%v", err)
 	}
 
+	prevColLetter, err := excelize.ColumnNumberToName(newColIdx)
+	if err != nil {
+		return nil, fmt.Errorf("转换前一列索引失败：%v", err)
+	}
+
 	// 写入表头
 	if err := baseFile.SetCellValue(baseSheet, fmt.Sprintf("%s1", newColLetter), targetColName); err != nil {
 		return nil, fmt.Errorf("设置表头失败：%v", err)
@@ -232,6 +237,17 @@ func StockStatistic(req StockStatisticRequest) (*StockStatisticResponse, error) 
 			if err := baseFile.SetCellValue(baseSheet, fmt.Sprintf("%s%d", newColLetter, excelRowNum), sum); err != nil {
 				fmt.Printf("写入行%d库存失败：%v\n", excelRowNum, err)
 			}
+
+			// 计算差值
+			prevSum, err := getCellFloatValue(baseFile, baseSheet, fmt.Sprintf("%s%d", prevColLetter, excelRowNum))
+			if err != nil {
+				fmt.Printf("读取前一列值失败：%v\n", err)
+				continue
+			}
+			diff := sum*26 - prevSum*25
+			if err := baseFile.SetCellValue(baseSheet, fmt.Sprintf("%s%d", newColLetter, excelRowNum+1), diff); err != nil {
+				fmt.Printf("写入差值失败：%v\n", err)
+			}
 		}
 	}
 
@@ -251,7 +267,7 @@ func StockStatistic(req StockStatisticRequest) (*StockStatisticResponse, error) 
 	fmt.Printf("统计完成！产品数量：%d，总库存数量：%.2f\n", productCount, totalStock)
 	// 返回包含新增字段的响应
 	return &StockStatisticResponse{
-		Message:       fmt.Sprintf("库存更新完成！新增列：%s。统计结果：产品数量 %d，总库存数量 %.2f", targetColName, productCount, totalStock),
+		Message:       fmt.Sprintf("库存更新完成！新增列：%s，已完成差值计算并写入。统计结果：产品数量 %d，总库存数量 %.2f", targetColName, productCount, totalStock),
 		ColName:       targetColName,
 		Cleanup:       0,
 		ProductCount:  productCount,
