@@ -1,6 +1,8 @@
 package service
 
 import (
+	"bytes"
+	"encoding/base64"
 	"fmt"
 	"go-gin/pkg/logger"
 	"os"
@@ -26,15 +28,16 @@ type ExcelProcessRequest struct {
 
 // ExcelProcessResponse 响应参数结构
 type ExcelProcessResponse struct {
-	TotalCount  int64                `json:"total_count"`   // 总计处理行数
-	GroupedData map[string]GroupData `json:"grouped_data"`  // 分组统计数据
-	Message     string               `json:"message"`       // 处理结果消息
-	TotalAllNum int                  `json:"total_all_num"` // 总计数量
-	TotalAllAmt float64              `json:"total_all_amt"` // 求和汇总
-	Processed   int                  `json:"processed"`     // 成功处理文件数
-	Skipped     int                  `json:"skipped"`       // 跳过文件数
-	XlsxCount   int                  `json:"xlsx_count"`    // .xlsx文件数
-	XlsCount    int                  `json:"xls_count"`     // .xls文件数
+	TotalCount    int64                `json:"total_count"`    // 总计处理行数
+	GroupedData   map[string]GroupData `json:"grouped_data"`   // 分组统计数据
+	Message       string               `json:"message"`        // 处理结果消息
+	TotalAllNum   int                  `json:"total_all_num"`  // 总计数量
+	TotalAllAmt   float64              `json:"total_all_amt"`  // 求和汇总
+	Processed     int                  `json:"processed"`      // 成功处理文件数
+	Skipped       int                  `json:"skipped"`        // 跳过文件数
+	XlsxCount     int                  `json:"xlsx_count"`     // .xlsx文件数
+	XlsCount      int                  `json:"xls_count"`      // .xls文件数
+	Base64Content string               `json:"base64_content"` // Excel文件Base64编码内容
 }
 
 // GroupData 分组数据结构
@@ -47,7 +50,7 @@ type GroupData struct {
 
 // ExcelService Excel处理服务接口
 type ExcelService interface {
-	ProcessExcel(req ExcelProcessRequest) (*ExcelProcessResponse, *excelize.File, error)
+	ProcessExcel(req ExcelProcessRequest) (*ExcelProcessResponse, error)
 }
 
 // excelService 实现ExcelService接口
@@ -296,7 +299,7 @@ func (s *excelService) generateSummaryExcel(req ExcelProcessRequest, statMap map
 }
 
 // ========== 核心处理方法（优化默认文件名：月日+汇总表） ==========
-func (s *excelService) ProcessExcel(req ExcelProcessRequest) (*ExcelProcessResponse, *excelize.File, error) {
+func (s *excelService) ProcessExcel(req ExcelProcessRequest) (*ExcelProcessResponse, error) {
 	// 1. 参数默认值设置（核心优化：默认文件名改为「MMDD汇总表.xlsx」）
 	if req.OutputFile == "" {
 		// 获取当前时间的月/日，格式：0121汇总表.xlsx（1月21日）
@@ -314,13 +317,13 @@ func (s *excelService) ProcessExcel(req ExcelProcessRequest) (*ExcelProcessRespo
 	matchColIdx, err := excelColToIndex(req.MatchColumn)
 	if err != nil {
 		logger.Errorf("匹配列转换失败: %v", err)
-		return nil, nil, fmt.Errorf("无效的匹配列: %v", err)
+		return nil, fmt.Errorf("无效的匹配列: %v", err)
 	}
 
 	sumColIdx, err := excelColToIndex(req.SumColumn)
 	if err != nil {
 		logger.Errorf("求和列转换失败: %v", err)
-		return nil, nil, fmt.Errorf("无效的求和列: %v", err)
+		return nil, fmt.Errorf("无效的求和列: %v", err)
 	}
 
 	keepColIdxs := make([]int, len(req.KeepColumns))
@@ -328,7 +331,7 @@ func (s *excelService) ProcessExcel(req ExcelProcessRequest) (*ExcelProcessRespo
 		idx, err := excelColToIndex(col)
 		if err != nil {
 			logger.Errorf("保留列%s转换失败: %v", col, err)
-			return nil, nil, fmt.Errorf("无效的保留列 %s: %v", col, err)
+			return nil, fmt.Errorf("无效的保留列 %s: %v", col, err)
 		}
 		keepColIdxs[i] = idx
 	}
@@ -349,12 +352,12 @@ func (s *excelService) ProcessExcel(req ExcelProcessRequest) (*ExcelProcessRespo
 	})
 	if err != nil {
 		logger.Errorf("遍历目录失败: %v", err)
-		return nil, nil, fmt.Errorf("遍历目录失败: %v", err)
+		return nil, fmt.Errorf("遍历目录失败: %v", err)
 	}
 
 	if len(excelFiles) == 0 {
 		logger.Warnf("目录%s中未找到Excel文件", req.BasePath)
-		return nil, nil, fmt.Errorf("目录中没有找到Excel文件")
+		return nil, fmt.Errorf("目录中没有找到Excel文件")
 	}
 
 	// 4. 统计文件类型
@@ -524,7 +527,7 @@ func (s *excelService) ProcessExcel(req ExcelProcessRequest) (*ExcelProcessRespo
 			errorMsg += "3. 尝试不指定匹配值，查看所有数据\n"
 		}
 
-		return nil, nil, fmt.Errorf(errorMsg)
+		return nil, fmt.Errorf(errorMsg)
 	}
 
 	logger.Infof("数据处理完成，共匹配%d行数据，分为%d个分组", totalCount, len(statMap))
@@ -533,12 +536,20 @@ func (s *excelService) ProcessExcel(req ExcelProcessRequest) (*ExcelProcessRespo
 	logger.Infof("处理统计: 匹配行=%d, 求和解析失败=%d, 行长度不足=%d",
 		matchCount, sumParseFailCount, rowLengthFailCount)
 
-	// 7. 生成汇总Excel
+	// 7. 生成汇总Excel并转换base64
 	excelFile, err := s.generateSummaryExcel(req, statMap, totalCount, totalAllNum, totalAllAmt)
 	if err != nil {
 		logger.Errorf("生成汇总Excel失败: %v", err)
-		return nil, nil, fmt.Errorf("生成汇总Excel失败: %v", err)
+		return nil, fmt.Errorf("生成汇总Excel失败: %v", err)
 	}
+	var buf bytes.Buffer
+	if err := excelFile.Write(&buf); err != nil {
+		logger.Errorf("写入excel文件到缓冲区失败: %v", err)
+		return nil, fmt.Errorf("写入excel文件到缓冲区失败: %v", err)
+	}
+	// 获取字节数据并编码
+	excelBytes := buf.Bytes()
+	base64Content := base64.StdEncoding.EncodeToString(excelBytes)
 
 	// 8. 构建响应消息
 	message := fmt.Sprintf("处理完成! 处理了 %d 个Excel文件(%d个.xlsx, %d个.xls), 跳过了 %d 个文件, 匹配了 %d 行数据, 按[%s]分组",
@@ -560,16 +571,17 @@ func (s *excelService) ProcessExcel(req ExcelProcessRequest) (*ExcelProcessRespo
 
 	// 10. 构建响应对象
 	response := &ExcelProcessResponse{
-		TotalCount:  totalCount,
-		GroupedData: groupedData,
-		Message:     message,
-		TotalAllNum: totalAllNum,
-		TotalAllAmt: totalAllAmt,
-		Processed:   processed,
-		Skipped:     skipped,
-		XlsxCount:   xlsxCount,
-		XlsCount:    xlsCount,
+		TotalCount:    totalCount,
+		GroupedData:   groupedData,
+		Message:       message,
+		TotalAllNum:   totalAllNum,
+		TotalAllAmt:   totalAllAmt,
+		Processed:     processed,
+		Skipped:       skipped,
+		XlsxCount:     xlsxCount,
+		XlsCount:      xlsCount,
+		Base64Content: base64Content,
 	}
 
-	return response, excelFile, nil
+	return response, nil
 }
