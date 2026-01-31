@@ -2,9 +2,8 @@ package main
 
 import (
 	"go-gin/config"
-	"go-gin/internal/service"
-	"go-gin/pkg/db"     // 新增：数据库初始化包
-	"go-gin/pkg/logger" // 项目日志组件（统一替换原生log）
+	"go-gin/internal/service" // 新增：数据库初始化包
+	"go-gin/pkg/logger"       // 项目日志组件（统一替换原生log）
 	"go-gin/routes"
 )
 
@@ -14,8 +13,6 @@ func main() {
 	}
 
 	logger.InitLogger(config.GlobalConfig.Log.Level)
-
-	db.Init()
 
 	if err := service.StartCleanupCronJob(); err != nil {
 		logger.Warnf("启动定时清理任务失败：%v", err)
