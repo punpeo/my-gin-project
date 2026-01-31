@@ -39,10 +39,10 @@ const ModulesManager = (function() {
             js: 'js/modules/cycle-sales.js',
             name: '周期销量统计'
         },
-        'dev-module-1': {
-            html: 'modules/dev-module-1.html',
-            js: 'js/modules/dev-module-1.js',
-            name: '智能分析模块'
+        'product': {
+            html: 'modules/product.html',
+            js: 'js/modules/product.js',
+            name: '商品信息查询'
         },
         'dev-module-2': {
             html: 'modules/dev-module-2.html',

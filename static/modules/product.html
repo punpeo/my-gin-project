@@ -1,0 +1,52 @@
+<div class="panel-header">
+    <div class="panel-title">
+        <div class="panel-icon">
+            <i class="fas fa-rocket"></i>
+        </div>
+        <div>
+            <h3>商品信息查询模块</h3>
+            <p class="panel-subtitle">支持商品条码查询、批量导入与统计分析</p>
+            <div class="module-badge">
+                <i class="fas fa-tools"></i>
+                商品管理
+            </div>
+        </div>
+    </div>
+</div>
+<div class="form-grid">
+    <div class="form-group">
+        <label class="form-label">
+            <i class="fas fa-cloud-arrow-up"></i>
+            上传文件
+        </label>
+        <!-- 补充：与JS绑定的核心上传区，保留原有样式 -->
+        <div class="file-upload-area" id="product-file-upload-area">
+            <i class="fas fa-cloud-upload-alt"></i>
+            <p id="shop-order-upload-text">点击或拖拽文件上传(可选)</p>
+            <span id="shop-order-upload-format-hint">支持 .xlsx, .xls 格式</span>
+        </div>
+    </div>
+
+    <!-- 操作结果展示区：补充类名与JS匹配 -->
+    <div class="response-container">
+        <label class="form-label">
+            <i class="fas fa-terminal"></i>
+            操作结果
+        </label>
+        <!-- 核心：response-content 类名与JS的样式控制绑定 -->
+        <div class="response-content" id="product-response-content">
+        </div>
+    </div>
+
+    <div class="btn-group-2">
+        <button class="btn btn-primary">
+            <i class="fas fa-chart-line"></i>
+            待定
+        </button>
+        <!-- 批量导入按钮：保留原有文字，JS通过位置和类名绑定 -->
+        <button class="btn btn-primary">
+            <i class="fas fa-chart-line"></i>
+            执行批量导入商品
+        </button>
+    </div>
+</div>

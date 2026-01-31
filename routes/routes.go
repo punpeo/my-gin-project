@@ -2,9 +2,9 @@ package routes
 
 import (
 	"go-gin/internal/handler"
+	"go-gin/internal/handler/db_handler"
 	"go-gin/internal/middleware"
 	"go-gin/pkg/response"
-
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -13,21 +13,16 @@ import (
 func SetupRouter() *gin.Engine {
 	r := gin.New()
 
-	// 设置可信代理（解决警告）
 	r.SetTrustedProxies([]string{"127.0.0.1"})
 
-	// 基础中间件
-	r.Use(middleware.LoggerMiddleware()) // 自定义日志
-	r.Use(gin.Recovery())                // 异常恢复
+	r.Use(middleware.LoggerMiddleware())
+	r.Use(gin.Recovery())
 
-	// 配置静态文件访问
 	r.Static("/static", "./static")
-	// 新的根路径路由：直接返回index.html，无需重定向
 	r.GET("/", func(c *gin.Context) {
 		c.File("./static/index.html")
 	})
 
-	// 健康检查路由
 	r.GET("/health", func(c *gin.Context) {
 		response.Success(c, gin.H{
 			"status":  "ok",
@@ -36,39 +31,64 @@ func SetupRouter() *gin.Engine {
 		})
 	})
 
-	// 业务接口路由组
+	// 业务主路由组 v1
 	v1 := r.Group("/api/v1")
 	{
-		// 打招呼接口
-		v1.GET("/greet", handler.GreetHandler)
-		v1.POST("/greet", handler.GreetPostHandler)
-		v1.GET("/files/names", handler.GetFilesNamesHandler)
+		// 基础通用接口子分组
+		base := v1.Group("/base")
+		{
+			base.GET("/greet", handler.GreetHandler)
+			base.POST("/greet", handler.GreetPostHandler)
+			base.GET("/files/names", handler.GetFilesNamesHandler)
+		}
 
-		// 库存统计接口
-		v1.POST("/stock/statistic", handler.StockStatisticHandler)
-		// 库存删除日期列
-		v1.POST("/stock/delete-date-column", handler.DeleteDateColumnHandler)
-		// 新增：单独的库存文件下载接口
-		v1.GET("/stock/download", handler.StockFileDownloadHandler)
-		// 新增：清理文件接口
-		v1.POST("/stock/cleanup", handler.CleanupFileHandler)
+		// 库存管理接口子分组
+		stock := v1.Group("/stock")
+		{
+			stock.POST("/statistic", handler.StockStatisticHandler)
+			stock.POST("/delete-date-column", handler.DeleteDateColumnHandler)
+			stock.GET("/download", handler.StockFileDownloadHandler)
+			stock.POST("/cleanup", handler.CleanupFileHandler)
+		}
 
-		// 订单汇总接口（新增）
-		v1.GET("/order/download-template", handler.DownloadOrderTemplate)
-		v1.POST("/order/upload-process", handler.UploadAndProcessOrderExcel)
-		// 新增：店铺订单统计接口
-		v1.POST("/shop-order/statistic-by-path", handler.StatShopOrderByPath)
-		v1.POST("/shop-order/statistic-by-upload", handler.StatShopOrderByUpload)
-		// 新增：产品周期销量统计接口
-		v1.POST("/cycle-sales/statistic", handler.CycleSalesStatisticHandler)
+		// 订单管理接口子分组
+		order := v1.Group("/order")
+		{
+			order.GET("/download-template", handler.DownloadOrderTemplate)
+			order.POST("/upload-process", handler.UploadAndProcessOrderExcel)
+		}
 
-		// ✅ 修正：挂载Excel处理接口（函数式）
-		v1.POST("/excel/process", handler.NewExcelHandler().ProcessExcel)
-		// ✅ 新增：挂载Excel填充接口（方法式）
-		excelFillHandler := handler.NewExcelFillHandler()
-		v1.POST("/excel/fill", excelFillHandler.FillExcel)
+		// 店铺订单管理接口子分组
+		shopOrder := v1.Group("/shop-order")
+		{
+			shopOrder.POST("/statistic-by-path", handler.StatShopOrderByPath)
+			shopOrder.POST("/statistic-by-upload", handler.StatShopOrderByUpload)
+		}
+
+		// 周期销量统计接口子分组
+		cycleSales := v1.Group("/cycle-sales")
+		{
+			cycleSales.POST("/statistic", handler.CycleSalesStatisticHandler)
+		}
+
+		// Excel处理通用接口子分组
+		excel := v1.Group("/excel")
+		{
+			excel.POST("/process", handler.NewExcelHandler().ProcessExcel)
+			excel.POST("/fill", handler.NewExcelFillHandler().FillExcel)
+		}
 	}
-	// 404处理
+
+	// 商品数据库接口路由组 v2（原有结构保留，内部无需拆分）
+	v2 := r.Group("/api/v2")
+	{
+		v2.GET("/barcode/:barcode", db_handler.ProductHandler.GetByBarCode)
+		v2.GET("/product/shop/:shop", db_handler.ProductHandler.ListByShop)
+		v2.GET("/product/all", db_handler.ProductHandler.ListAll)
+		v2.POST("/product/import", db_handler.ProductHandler.BatchImport)
+	}
+
+	// 404统一处理
 	r.NoRoute(func(c *gin.Context) {
 		response.Fail(c, 404, "接口不存在")
 	})
