@@ -13,8 +13,16 @@ type AppConfig struct {
 	Server       ServerConfig       `yaml:"server"`
 	StockCleanup StockCleanupConfig `yaml:"stock_cleanup"`
 	Log          LogConfig          `yaml:"log"`
+	ProductDB    ProductDBConfig    `yaml:"product_db"`
 }
 
+type ProductDBConfig struct {
+	DSN             string `yaml:"dsn"`
+	LogLevel        int    `yaml:"log_level"`
+	MaxIdleConns    int    `yaml:"max_idle_conns"`
+	MaxOpenConns    int    `yaml:"max_open_conns"`
+	ConnMaxLifetime int    `yaml:"conn_max_lifetime"`
+}
 type ServerConfig struct {
 	Addr string `yaml:"addr"`
 }

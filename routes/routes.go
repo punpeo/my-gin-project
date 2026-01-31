@@ -2,6 +2,7 @@ package routes
 
 import (
 	"go-gin/internal/handler"
+	"go-gin/internal/handler/db_handler"
 	"go-gin/internal/middleware"
 	"go-gin/pkg/response"
 	"time"
@@ -79,13 +80,13 @@ func SetupRouter() *gin.Engine {
 	}
 
 	// 商品数据库接口路由组 v2（原有结构保留，内部无需拆分）
-	//v2 := r.Group("/api/v2")
-	//{
-	//	v2.GET("/barcode/:barcode", db_handler.ProductHandler.GetByBarCode)
-	//	v2.GET("/product/shop/:shop", db_handler.ProductHandler.ListByShop)
-	//	v2.GET("/product/all", db_handler.ProductHandler.ListAll)
-	//	v2.POST("/product/import", db_handler.ProductHandler.BatchImport)
-	//}
+	v2 := r.Group("/api/v2")
+	{
+		v2.GET("/barcode/:barcode", db_handler.ProductHandler.GetByBarCode)
+		v2.GET("/product/shop/:shop", db_handler.ProductHandler.ListByShop)
+		v2.GET("/product/all", db_handler.ProductHandler.ListAll)
+		v2.POST("/product/import", db_handler.ProductHandler.BatchImport)
+	}
 
 	// 404统一处理
 	r.NoRoute(func(c *gin.Context) {
