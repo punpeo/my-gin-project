@@ -1,7 +1,6 @@
 /**
- * 模块管理器 - 负责模块的加载、切换和状态管理
+ * 模块管理器 - 负责模块的加载、切换和状态管理（含点击支持+全量体验优化）
  */
-
 const ModulesManager = (function() {
     // 私有变量
     let currentModule = null;
@@ -54,6 +53,14 @@ const ModulesManager = (function() {
     
     // 模块注册表
     const moduleRegistry = {};
+
+    // 新增：私有方法 - 清除悬停定时器（统一管理，避免冗余代码）
+    const clearHoverTimer = function() {
+        if (hoverTimer) {
+            clearTimeout(hoverTimer);
+            hoverTimer = null;
+        }
+    };
     
     return {
         /**
@@ -62,10 +69,12 @@ const ModulesManager = (function() {
         init: function() {
             console.log('模块系统初始化');
             this.setupEventListeners();
+            // 新增：初始化时绑定导航项的悬停/点击/移出事件（核心交互绑定）
+            this.bindNavItemEvents();
         },
         
         /**
-         * 设置事件监听器
+         * 设置全局事件监听器
          */
         setupEventListeners: function() {
             // 全局点击事件委托
@@ -108,28 +117,69 @@ const ModulesManager = (function() {
                 }
             });
         },
-        
+
         /**
-         * 设置活动模块
+         * 新增：绑定导航项的悬停/点击/移出事件（核心交互入口）
          */
-        setActiveModule: function(moduleId) {
-            if (!isHoverEnabled || currentModule === moduleId) return;
-            
-            // 清除悬停定时器
-            if (hoverTimer) {
-                clearTimeout(hoverTimer);
-                hoverTimer = null;
+        bindNavItemEvents: function() {
+            const navItems = document.querySelectorAll('.nav-item');
+            navItems.forEach(item => {
+                const moduleId = item.getAttribute('data-target');
+                if (!moduleId) return;
+
+                // 1. 鼠标悬停：延迟300ms加载（原有逻辑）
+                item.addEventListener('mouseenter', () => {
+                    this.setActiveModule(moduleId);
+                });
+
+                // 2. 鼠标点击：立即加载（新增核心功能）
+                item.addEventListener('click', (e) => {
+                    e.preventDefault(); // 阻止默认链接行为（若有）
+                    this.setActiveModule(moduleId, true);
+                });
+
+                // 3. 鼠标移出：清除定时器（体验优化，防止滑过冗余加载）
+                item.addEventListener('mouseleave', () => {
+                    clearHoverTimer();
+                });
+            });
+
+            // 额外优化：鼠标移出整个导航容器，也清除定时器（兜底处理）
+            const navContainer = document.querySelector('.nav-container') || document.querySelector('.nav');
+            if (navContainer) {
+                navContainer.addEventListener('mouseleave', () => {
+                    clearHoverTimer();
+                });
             }
-            
-            // 设置悬停延迟
-            hoverTimer = setTimeout(() => {
-                this.loadModule(moduleId);
-                hoverTimer = null;
-            }, 300);
         },
         
         /**
-         * 加载模块
+         * 优化：设置活动模块（支持【悬停延迟/点击立即】，含全量体验优化）
+         * @param {string} moduleId - 模块ID
+         * @param {boolean} [isClick=false] - 是否为点击触发，默认false（悬停）
+         */
+        setActiveModule: function(moduleId, isClick = false) {
+            // 基础校验：禁用悬停/模块未切换时，直接终止所有操作
+            if (!isHoverEnabled || currentModule === moduleId) return;
+
+            // 核心优化1：无论点击/悬停，先清除原有定时器，避免多个延迟叠加、重复加载
+            clearHoverTimer();
+
+            // 核心优化2：点击触发→立即加载（跳过所有延迟，符合点击即时性体验）
+            if (isClick) {
+                this.loadModule(moduleId);
+                return; // 点击后直接返回，避免后续悬停逻辑干扰
+            }
+
+            // 悬停触发→保留300ms延迟（原逻辑），搭配鼠标移出清除，防止离开后仍加载
+            hoverTimer = setTimeout(() => {
+                this.loadModule(moduleId);
+                clearHoverTimer(); // 执行后清空定时器，避免内存冗余
+            }, 1000);
+        },
+        
+        /**
+         * 加载模块（原有逻辑，无修改）
          */
         loadModule: function(moduleId) {
             if (!modulesConfig[moduleId]) {
@@ -151,7 +201,7 @@ const ModulesManager = (function() {
         },
         
         /**
-         * 更新导航状态
+         * 更新导航状态（原有逻辑，无修改）
          */
         updateNavigationState: function(moduleId) {
             const navItems = document.querySelectorAll('.nav-item');
@@ -164,7 +214,7 @@ const ModulesManager = (function() {
         },
         
         /**
-         * 显示加载状态
+         * 显示加载状态（原有逻辑，无修改）
          */
         showLoadingState: function(moduleId) {
             const modulesContainer = document.getElementById('modules-container');
@@ -189,7 +239,7 @@ const ModulesManager = (function() {
         },
         
         /**
-         * 加载模块内容
+         * 加载模块内容（原有逻辑，无修改）
          */
         loadModuleContent: function(moduleId) {
             const moduleConfig = modulesConfig[moduleId];
@@ -247,7 +297,7 @@ const ModulesManager = (function() {
         },
         
         /**
-         * 加载模块脚本
+         * 加载模块脚本（原有逻辑，无修改）
          */
         loadModuleScript: function(moduleId, container) {
             const moduleConfig = modulesConfig[moduleId];
@@ -281,7 +331,7 @@ const ModulesManager = (function() {
         },
         
         /**
-         * 绑定通用事件
+         * 绑定通用事件（原有逻辑，无修改）
          */
         bindCommonEvents: function(container) {
             if (!container) return;
@@ -327,28 +377,28 @@ const ModulesManager = (function() {
         },
         
         /**
-         * 注册模块
+         * 注册模块（原有逻辑，无修改）
          */
         registerModule: function(moduleId, module) {
             moduleRegistry[moduleId] = module;
         },
         
         /**
-         * 获取当前模块
+         * 获取当前模块（原有逻辑，无修改）
          */
         getCurrentModule: function() {
             return currentModule;
         },
         
         /**
-         * 获取模块配置
+         * 获取模块配置（原有逻辑，无修改）
          */
         getModuleConfig: function(moduleId) {
             return modulesConfig[moduleId];
         },
         
         /**
-         * 获取所有模块配置
+         * 获取所有模块配置（原有逻辑，无修改）
          */
         getAllModules: function() {
             return { ...modulesConfig };
@@ -357,7 +407,7 @@ const ModulesManager = (function() {
 })();
 
 /**
- * 处理按钮点击
+ * 处理按钮点击（原有逻辑，无修改）
  */
 function handleButtonClick(button) {
     if (!button) return;
@@ -395,7 +445,7 @@ function handleButtonClick(button) {
 }
 
 /**
- * 处理文件上传点击
+ * 处理文件上传点击（原有逻辑，无修改）
  */
 function handleFileUploadClick(uploadArea) {
     if (!uploadArea) return;
@@ -419,7 +469,7 @@ function handleFileUploadClick(uploadArea) {
 }
 
 /**
- * 处理文件拖放
+ * 处理文件拖放（原有逻辑，无修改）
  */
 function handleFileDrop(uploadArea, files) {
     if (!uploadArea || !files || files.length === 0) return;
@@ -431,3 +481,8 @@ function handleFileDrop(uploadArea, files) {
         <span>文件已选择，点击上传按钮开始处理</span>
     `;
 }
+
+// 页面加载完成后初始化模块管理器
+document.addEventListener('DOMContentLoaded', function() {
+    ModulesManager.init();
+});

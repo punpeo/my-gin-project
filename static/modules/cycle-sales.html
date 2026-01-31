@@ -119,15 +119,11 @@
             </select>
         </div>
     </div>
-    <!-- 新增：操作结果展示区（初始空白） -->
-    <div class="response-container" id="stock-response-container">
-        <label class="form-label">
-            <i class="fas fa-terminal"></i>
-            操作结果
-        </label>
-        <div class="response-content" id="stock-response-content">
-            <!-- 初始空白，无占位文字 -->
-        </div>
+    <!-- 响应结果展示区：新增全局类名，保证样式匹配 -->
+    <div id="stock-response-container" class="response-container">
+        <label class="form-label"><i class="fas fa-comment-dots"></i> 操作结果</label>
+        <!-- 核心：保留原有ID，新增response-content类（全局样式核心类） -->
+        <div id="stock-response-content" class="response-content"></div>
     </div>
     <button class="btn btn-primary" id="cycle-sales-statistic-btn">
         <i class="fas fa-chart-pie"></i>
