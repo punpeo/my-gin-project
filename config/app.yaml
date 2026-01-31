@@ -9,3 +9,11 @@ stock_cleanup:
   cron_expression: "0 0 0 * * *"  # （可自定义，如 "0 30 23 * * *" 表示每天23:30执行）
   base_path: "E:\\kucun"         # 默认清理目录
   base_file_name: "kucun.xlsx"   # 基准文件名
+
+product_db:
+  dsn: "data/product.db"
+  log_level: 3  # 1=Silent, 2=Error, 3=Warn, 4=Info
+  max_idle_conns: 10
+  max_open_conns: 100
+  conn_max_lifetime: 3600
+

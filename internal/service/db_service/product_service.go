@@ -126,5 +126,9 @@ func (s *productService) BatchImportProduct(fileContent []byte) error {
 	}
 
 	// 7. 调用DAO层批量插入（数据库层已做唯一条码约束，防跨文件重复）
-	return dao.ProductDao.BatchCreate(products)
+	err = dao.ProductDao.BatchCreate(products)
+	if err != nil {
+		return fmt.Errorf("批量导入商品数据失败：%v", err)
+	}
+	return nil
 }
