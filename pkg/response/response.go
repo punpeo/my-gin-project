@@ -9,9 +9,10 @@ import (
 // 基础响应结构体（极简通用版）
 // 字段命名采用前端友好的短命名（code/msg/data），兼顾兼容性
 type BaseResponse struct {
-	Code int         `json:"code"` // 业务状态码（核心区分成功/失败/具体业务错误）
-	Msg  string      `json:"msg"`  // 人性化提示信息（前端直接展示）
-	Data interface{} `json:"data"` // 响应数据（成功时返回，失败时为nil）
+	Code    int         `json:"code"` // 业务状态码（核心区分成功/失败/具体业务错误）
+	Msg     string      `json:"msg"`  // 人性化提示信息（前端直接展示）
+	Data    interface{} `json:"data"` // 响应数据（成功时返回，失败时为nil）
+	Success bool        `json:"success"`
 }
 
 // --------------------------
@@ -70,9 +71,10 @@ func Success(c *gin.Context, data interface{}) {
 // 场景：需要自定义成功提示（如“库存统计成功”“文件删除成功”）
 func SuccessWithMessage(c *gin.Context, msg string, data interface{}) {
 	c.JSON(HTTPStatusOK, BaseResponse{
-		Code: CodeSuccess,
-		Msg:  msg,
-		Data: data,
+		Code:    CodeSuccess,
+		Msg:     msg,
+		Data:    data,
+		Success: true,
 	})
 }
 
@@ -80,9 +82,10 @@ func SuccessWithMessage(c *gin.Context, msg string, data interface{}) {
 // 场景：特殊成功场景（如创建资源返回201 Created）
 func SuccessWithStatus(c *gin.Context, httpStatus int, data interface{}) {
 	c.JSON(httpStatus, BaseResponse{
-		Code: CodeSuccess,
-		Msg:  "操作成功",
-		Data: data,
+		Code:    CodeSuccess,
+		Msg:     "操作成功",
+		Data:    data,
+		Success: true,
 	})
 }
 

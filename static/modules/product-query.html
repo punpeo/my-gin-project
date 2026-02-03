@@ -1,40 +1,49 @@
 <div class="main-content">
-    <!-- 商品查询表单：原有结构，无任何修改 -->
-    <form class="form-grid" id="query-form">
+    <!-- 商品查询表单：语义化分组 -->
+    <form class="form-grid" id="query-form" aria-describedby="query-form-desc">
+        <div id="query-form-desc" class="sr-only">输入商品条码或事业部编码进行查询，多个值用英文逗号分隔。</div>
         <div class="form-row-3">
             <div class="form-group">
-                <label class="form-label"><i class="fas fa-barcode"></i> 商品条码</label>
-                <input type="text" class="form-control" name="barCode" id="barCode"
-                    placeholder="请输入商品条码（如6977676160984）">
+                <label class="form-label" for="input-barCode">
+                    <i class="fas fa-barcode"></i> 商品条码
+                </label>
+                <input type="text" class="form-control" name="barCode" id="input-barCode" placeholder="商品条码，多条用逗号分隔" />
+                <div class="invalid-feedback" id="error-barCode"></div>
             </div>
             <div class="form-group">
-                <label class="form-label"><i class="fas fa-code"></i> 事业部编码</label>
-                <input type="text" class="form-control" name="businessCode" id="businessCode" placeholder="请输入事业部编码">
+                <label class="form-label" for="input-businessCode">
+                    <i class="fas fa-code"></i> 事业部编码
+                </label>
+                <input type="text" class="form-control" name="businessCode" id="input-businessCode"
+                    placeholder="事业部商品编码，多条用逗号分隔" />
+                <div class="invalid-feedback" id="error-businessCode"></div>
             </div>
             <div class="form-group">
-                <button type="submit" class="btn btn-primary">
-                    <i class="fas fa-search"></i> 执行查询
+                <button type="submit" class="btn btn-primary" id="btn-query" aria-live="polite">
+                    <i class="fas fa-search"></i> 查询
                 </button>
             </div>
         </div>
     </form>
 
-    <!-- 数据列表容器：原有结构，补充核心元素ID -->
+    <!-- 消息反馈容器 -->
+    <div class="query-response-container" id="query-response-container" aria-live="polite"></div>
+
     <div class="data-table">
-        <div class="table-toolbar">
+        <div class="table-toolbar" role="toolbar" aria-label="表格操作工具栏">
             <div class="toolbar-left">
-                <button class="btn btn-add">
+                <button class="btn btn-add" id="btn-add" aria-haspopup="dialog">
                     <i class="fas fa-plus"></i> 新增商品
                 </button>
             </div>
             <div class="toolbar-right">
-                <button class="btn btn-delete">
+                <button class="btn btn-danger" id="btn-delete" aria-disabled="true">
                     <i class="fas fa-trash"></i> 删除产品
                 </button>
-                <button class="btn btn-import">
-                    <i class="fas fa-file-import"></i> 批量导入
+                <button class="btn btn-import" id="btn-import">
+                    <i class="fas fa-file-import"></i> 文件导入
                 </button>
-                <button class="btn btn-copy-batch">
+                <button class="btn btn-copy-batch" id="btn-copy-batch">
                     <i class="fas fa-copy"></i> 复制
                 </button>
             </div>
@@ -42,8 +51,9 @@
 
         <div class="data-table-header">
             <div class="table-col col-check">
+                <!-- 已移除冗余ARIA属性，保留原生复选框语义 -->
                 <label class="check-box check-all">
-                    <input type="checkbox" id="checkAll">
+                    <input type="checkbox" id="check-all" aria-hidden="true">
                     <span class="check-square"></span>
                 </label>
             </div>
@@ -55,21 +65,20 @@
             <div class="table-col col-operate">操作</div>
         </div>
 
-        <!-- 列表主体：补充ID -->
-        <div class="data-table-body" id="dataTableBody">
-            <!-- 无数据占位：补充ID -->
-            <div class="table-empty" id="tableEmpty">
+        <div class="data-table-body" id="table-body" tabindex="0">
+            <!-- 关键调整：添加show类，默认显示无数据状态 -->
+            <div class="table-empty show" id="table-empty">
                 <i class="fas fa-search-none"></i>
                 <p>暂无匹配的商品数据</p>
             </div>
         </div>
     </div>
 
-    <!-- 分页功能区域：原有结构，补充所有分页元素ID -->
-    <div class="pagination-wrap">
+    <!-- 分页功能区域 -->
+    <div class="pagination-wrap" id="pagination-wrap" role="navigation" aria-label="分页导航">
         <div class="page-size">
             <span>每页显示：</span>
-            <select class="form-control" id="pageSize">
+            <select class="form-control" id="select-pageSize" aria-label="选择每页显示条数">
                 <option value="10" selected>10条</option>
                 <option value="20">20条</option>
                 <option value="50">50条</option>
@@ -77,12 +86,111 @@
             </select>
         </div>
         <div class="page-stats">
-            共 <span class="total-count" id="totalCount">0</span> 条数据 | 第 <span class="current-page"
-                id="currentPage">1</span> / <span class="total-page" id="totalPage">1</span> 页
+            共 <span class="total-count" id="total-count">0</span> 条数据 |
+            第 <span class="current-page" id="current-page">1</span> /
+            <span class="total-page" id="total-page">1</span> 页
         </div>
         <div class="page-buttons">
-            <button class="btn btn-page" id="prevPage" disabled>上一页</button>
-            <button class="btn btn-page" id="nextPage" disabled>下一页</button>
+            <button class="btn btn-page" id="btn-prevPage" disabled aria-label="上一页">上一页</button>
+            <button class="btn btn-page" id="btn-nextPage" disabled aria-label="下一页">下一页</button>
         </div>
+    </div>
+</div>
+
+<!-- 弹窗遮罩层：已移除无意义的tabindex="-1" -->
+<div class="modal-mask" id="modal-mask"></div>
+
+<!-- 新增商品弹窗：结构不变，兼容无圆角样式 -->
+<div class="modal-wrap modal-add-product" id="modal-add-product" role="dialog" aria-modal="true"
+    aria-labelledby="modal-add-title">
+    <div class="modal-header">
+        <h3 class="modal-title" id="modal-add-title">
+            <i class="fas fa-plus"></i> 新增商品
+        </h3>
+        <button class="modal-close" id="modal-close-add" aria-label="关闭弹窗">
+            <i class="fas fa-times"></i>
+        </button>
+    </div>
+    <div class="modal-body">
+        <form class="modal-form" id="form-add-product">
+            <div class="form-group">
+                <label class="form-label" for="input-add-shop">
+                    店铺 <span class="required">*</span>
+                </label>
+                <input type="text" class="form-control" name="shop" id="input-add-shop" placeholder="请输入店铺名称" required />
+                <div class="invalid-feedback" id="add-error-shop"></div>
+            </div>
+            <div class="form-group">
+                <label class="form-label" for="input-add-productName">
+                    产品名称 <span class="required">*</span>
+                </label>
+                <input type="text" class="form-control" name="productName" id="input-add-productName"
+                    placeholder="请输入产品名称" required />
+                <div class="invalid-feedback" id="add-error-productName"></div>
+            </div>
+            <div class="form-group">
+                <label class="form-label" for="input-add-barCode">
+                    商品条码 <span class="required">*</span>
+                </label>
+                <input type="text" class="form-control" name="barCode" id="input-add-barCode" placeholder="请输入13位商品条码"
+                    required pattern="\d{13}" />
+                <div class="invalid-feedback" id="add-error-barCode"></div>
+            </div>
+            <div class="form-group">
+                <label class="form-label" for="input-add-businessCode">
+                    事业部商品编码 <span class="required">*</span>
+                </label>
+                <input type="text" class="form-control" name="businessCode" id="input-add-businessCode"
+                    placeholder="请输入事业部编码" required />
+                <div class="invalid-feedback" id="add-error-businessCode"></div>
+            </div>
+            <div class="form-group">
+                <label class="form-label" for="input-add-merchantCode">
+                    商家商品标识 <span class="required">*</span>
+                </label>
+                <input type="text" class="form-control" name="merchantCode" id="input-add-merchantCode"
+                    placeholder="请输入商家商品标识" required />
+                <div class="invalid-feedback" id="add-error-merchantCode"></div>
+            </div>
+        </form>
+    </div>
+    <div class="modal-footer">
+        <button class="btn btn-cancel" id="btn-cancel-add">取消</button>
+        <button class="btn btn-submit btn-primary" id="btn-submit-add">提交保存</button>
+    </div>
+</div>
+
+<!-- 文件导入弹窗：结构不变，兼容无圆角样式 -->
+<div class="modal-wrap modal-import-excel" id="modal-import-excel" role="dialog" aria-modal="true"
+    aria-labelledby="modal-import-title">
+    <div class="modal-header">
+        <h3 class="modal-title" id="modal-import-title">
+            <i class="fas fa-file-import"></i> Excel文件导入
+        </h3>
+        <button class="modal-close" id="modal-close-import" aria-label="关闭弹窗">
+            <i class="fas fa-times"></i>
+        </button>
+    </div>
+    <div class="modal-body">
+        <div class="import-tips">
+            <p><i class="fas fa-info-circle"></i> 导入说明：</p>
+            <ul>
+                <li>仅支持.xlsx格式Excel文件，大小不超过2MB</li>
+                <li>Excel需包含5列，表头依次为：店铺、产品名称、商品条码、事业部商品编码、商家商品标识</li>
+                <li>商品条码为唯一标识，不可重复，且为13位数字</li>
+                <li>所有字段为必填项，不可留空</li>
+            </ul>
+        </div>
+        <div class="file-upload-wrap">
+            <input type="file" class="file-upload" id="input-excelFile" accept=".xlsx" hidden />
+            <label for="input-excelFile" class="file-upload-btn btn btn-default">
+                <i class="fas fa-upload"></i> 选择Excel文件
+            </label>
+            <span class="file-name" id="text-fileName">未选择任何文件</span>
+        </div>
+    </div>
+    <div class="modal-footer">
+        <button class="btn btn-cancel" id="btn-cancel-import">取消</button>
+        <button class="btn btn-import-submit btn-primary" id="btn-submit-import" disabled>开始导入</button>
     </div>
 </div>

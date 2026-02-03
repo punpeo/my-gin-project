@@ -2,6 +2,7 @@ package db_handler
 
 import (
 	service "go-gin/internal/service/db_service"
+	"go-gin/pkg/logger"
 	"go-gin/pkg/response"
 	"net/http"
 
@@ -61,55 +62,114 @@ func (h *productHandler) ListAll(c *gin.Context) {
 	})
 }
 
-// BatchImport 批量导入商品Excel文件
-// @POST /api/product/import
-func (h *productHandler) BatchImport(c *gin.Context) {
-	// 1. 获取上传的文件
-	file, err := c.FormFile("file")
+// ListAllWithPage 查询所有商品（分页）
+func (h *productHandler) ListAllWithPage(c *gin.Context) {
+	var req service.PageQueryReq
+	// 绑定参数（支持form/JSON）
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Fail(c, http.StatusBadRequest, "参数格式错误")
+		return
+	}
+	logger.Infof("接收到分页查询请求，参数：%+v", req)
+	// 新增：显式设置默认值，避免日志显示0（与Service层默认值保持一致）
+	if req.CurrentPage <= 0 {
+		req.CurrentPage = 1
+	}
+	if req.PageSize <= 0 || req.PageSize > 100 {
+		req.PageSize = 10
+	}
+
+	logger.Infof("分页查询商品，当前页：%d，每页条数：%d，条码过滤：%v，业务码过滤：%v", req.CurrentPage, req.PageSize, req.BarCodes, req.BusinessCodes)
+	// 调用Service层方法（参数已做默认值处理，无需担心0值）
+	products, total, err := service.ProductService.ListAllWithPage(req.CurrentPage, req.PageSize, req.BarCodes, req.BusinessCodes)
 	if err != nil {
-		response.Fail(c, 400, "请选择要上传的文件："+err.Error())
+		response.Fail(c, http.StatusInternalServerError, "商品查询失败，请稍后重试")
 		return
 	}
 
-	// 2. 验证文件类型
-	fileName := file.Filename
-	if !isExcelFile(fileName) {
-		response.Fail(c, 400, "文件格式不支持，仅支持.xlsx和.xls格式")
-		return
-	}
-
-	// 3. 读取文件内容
-	src, err := file.Open()
-	if err != nil {
-		response.Fail(c, 500, "打开上传文件失败："+err.Error())
-		return
-	}
-	defer src.Close()
-
-	// 读取文件字节
-	fileBytes := make([]byte, file.Size)
-	_, err = src.Read(fileBytes)
-	if err != nil {
-		response.Fail(c, 500, "读取上传文件失败："+err.Error())
-		return
-	}
-	// 4. 调用服务层批量导入商品
-	err = service.ProductService.BatchImportProduct(fileBytes)
-	if err != nil {
-		response.Fail(c, 500, "导入失败："+err.Error())
-		return
-	}
-	response.Success(c, "导入成功")
+	// 成功返回
+	response.SuccessWithMessage(c, "商品查询成功", gin.H{
+		"list":  products,
+		"total": total,
+	})
 }
 
-// isExcelFile 检查是否为Excel文件
-func isExcelFile(fileName string) bool {
-	// 检查文件扩展名
-	allowedExtensions := []string{".xlsx", ".xls"}
-	for _, ext := range allowedExtensions {
-		if len(fileName) >= len(ext) && fileName[len(fileName)-len(ext):] == ext {
-			return true
-		}
+// GetByID 按ID查询商品
+// @POST /api/product/id
+func (h *productHandler) GetByID(c *gin.Context) {
+
+	var req service.ShopGoods
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Fail(c, http.StatusBadRequest, "参数格式错误")
+		return
 	}
-	return false
+	product, err := service.ProductService.GetByID(req.ID)
+	if err != nil {
+		response.Fail(c, http.StatusInternalServerError, "查询失败："+err.Error())
+		return
+	}
+	response.SuccessWithMessage(c, "查询成功", gin.H{
+		"shopGoods": product,
+	})
+}
+
+// edit 修改商品信息
+func (h *productHandler) UpdateProduct(c *gin.Context) {
+
+	var req service.ShopGoods
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Fail(c, http.StatusBadRequest, "参数格式错误")
+		return
+	}
+	err := service.ProductService.UpdateProduct(&req)
+	if err != nil {
+		response.Fail(c, http.StatusInternalServerError, "修改失败："+err.Error())
+		return
+	}
+	response.Success(c, "修改成功")
+}
+
+// ImportByExcel Excel文件批量导入商品
+func (h *productHandler) ImportByExcel(c *gin.Context) {
+	var req service.ExcelImportReq
+	if err := c.ShouldBind(&req); err != nil {
+		response.Fail(c, http.StatusBadRequest, "参数格式错误："+err.Error())
+		return
+	}
+
+	if err := service.ProductService.ImportByExcel(&req); err != nil {
+		response.Fail(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+	response.SuccessWithMessage(c, "Excel文件批量导入商品成功", nil)
+}
+
+// CreateOne 单条新增商品
+func (h *productHandler) CreateOne(c *gin.Context) {
+	var req service.ShopGoodsReq
+	if err := c.ShouldBind(&req); err != nil {
+		response.Fail(c, http.StatusBadRequest, "参数格式错误："+err.Error())
+		return
+	}
+
+	if err := service.ProductService.CreateOne(&req); err != nil {
+		response.Fail(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+	response.SuccessWithMessage(c, "单条商品新增成功", nil)
+}
+
+// CreateBatch 多条批量新增商品
+func (h *productHandler) CreateBatch(c *gin.Context) {
+	var req service.BatchShopGoodsReq
+	if err := c.ShouldBind(&req); err != nil {
+		response.Fail(c, http.StatusBadRequest, "参数格式错误："+err.Error())
+		return
+	}
+
+	if err := service.ProductService.CreateBatch(&req); err != nil {
+		response.Fail(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+	response.SuccessWithMessage(c, "批量新增商品成功", gin.H{"added_count": len(req.Products)})
 }

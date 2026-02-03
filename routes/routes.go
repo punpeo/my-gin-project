@@ -85,7 +85,15 @@ func SetupRouter() *gin.Engine {
 		v2.GET("/barcode/:barcode", db_handler.ProductHandler.GetByBarCode)
 		v2.GET("/product/shop/:shop", db_handler.ProductHandler.ListByShop)
 		v2.GET("/product/all", db_handler.ProductHandler.ListAll)
-		v2.POST("/product/import", db_handler.ProductHandler.BatchImport)
+		v2.POST("/product/all-with-page", db_handler.ProductHandler.ListAllWithPage)
+		//通过ID精准查询商品接口
+		v2.POST("/product/id", db_handler.ProductHandler.GetByID)
+		//edit修改商品接口
+		v2.POST("/product/edit", db_handler.ProductHandler.UpdateProduct)
+		v2.POST("/product/import-excel", db_handler.ProductHandler.ImportByExcel) // Excel导入
+		v2.POST("/product/create", db_handler.ProductHandler.CreateOne)           // 单条新增
+		v2.POST("/product/create-batch", db_handler.ProductHandler.CreateBatch)   // 多条新增
+
 	}
 
 	// 404统一处理
