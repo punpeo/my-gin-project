@@ -570,7 +570,7 @@ select.form-control {
     display: none;
 }
 
-/* 弹窗容器：居中显示，默认隐藏，统一尺寸和样式 */
+/* 弹窗容器：核心调整 - 继承全局无圆角、统一阴影和边框，贴合全局样式 */
 .modal-wrap {
     position: fixed;
     top: 50%;
@@ -578,10 +578,11 @@ select.form-control {
     transform: translate(-50%, -50%);
     width: 500px;
     background: #fff;
-    border-radius: 8px;
-    box-shadow: 0 2px 16px rgba(0, 0, 0, 0.15);
+    border-radius: var(--border-radius); /* 关键：继承全局无圆角 */
+    box-shadow: var(--shadow-md); /* 统一全局阴影 */
     z-index: 9999;
     display: none;
+    border: 1px solid var(--gray-200); /* 贴合全局组件边框 */
 }
 
 /* 弹窗头部：标题+关闭按钮布局 */
@@ -1440,7 +1441,7 @@ select.form-control {
     justify-content: center;
     height: 300px;
     padding: 40px 0;
-    color: var(--gray-400);
+    color: #999;
 }
 
 .table-empty.show {
@@ -1870,9 +1871,9 @@ select.form-control {
         line-height: 1.4;
     }
 
-    /* 商品查询模块无数据占位优化：匹配列表高度，居中对齐 */
+    /* 商品查询模块无数据占位优化：核心调整 - 高度380px匹配表格主体 */
     #query-form~.data-table .table-empty {
-        height: 300px;
+        height: 380px;
         display: flex;
         flex-direction: column;
         align-items: center;
@@ -1893,7 +1894,7 @@ select.form-control {
         display: flex;
     }
 
-    /* 操作列按钮专属配色：区分复制/修改，提升辨识度 */
+    /* 操作列按钮专属配色：核心完善 - 编辑按钮样式，修复变量缺失问题 */
     .col-operate .btn-copy {
         background: linear-gradient(135deg, var(--primary-ultra-light), rgba(99, 102, 241, 0.1));
         border-color: var(--primary-light);
@@ -1907,13 +1908,14 @@ select.form-control {
 
     .col-operate .btn-edit {
         background: linear-gradient(135deg, rgba(245, 158, 11, 0.05), rgba(245, 158, 11, 0.1));
-        border-color: var(--warning-light);
+        border-color: var(--primary-light);
         color: var(--warning);
     }
 
     .col-operate .btn-edit:hover {
         background: linear-gradient(135deg, var(--warning), #d97706);
         color: #fff;
+        border-color: var(--warning);
     }
 
     /* 分页统计文本适配：匹配全局字体，突出数字 */
@@ -1942,5 +1944,4 @@ select.form-control {
             font-size: 0.8rem;
         }
     }
-
 }
