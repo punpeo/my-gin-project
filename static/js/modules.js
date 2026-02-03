@@ -1,60 +1,22 @@
-/**
- * 模块管理器 - 负责模块的加载、切换和状态管理（含点击支持+全量体验优化）
- */
 const ModulesManager = (function() {
-    // 私有变量
     let currentModule = null;
     let isHoverEnabled = true;
     let hoverTimer = null;
     
-    // 模块配置映射
     const modulesConfig = {
-        'excel-sales': {
-            html: 'modules/excel-sales.html',
-            js: 'js/modules/excel-sales.js',
-            name: 'Excel分组汇总'
-        },
-        'excel-fill': {
-            html: 'modules/excel-fill.html',
-            js: 'js/modules/excel-fill.js',
-            name: 'Excel数据匹配填充'
-        },
-        'stock': {
-            html: 'modules/stock.html',
-            js: 'js/modules/stock.js',
-            name: '库存统计'
-        },
-        'order-summary': {
-            html: 'modules/order-summary.html',
-            js: 'js/modules/order-summary.js',
-            name: '订单汇总'
-        },
-        'shop-order': {
-            html: 'modules/shop-order.html',
-            js: 'js/modules/shop-order.js',
-            name: '店铺订单统计'
-        },
-        'cycle-sales': {
-            html: 'modules/cycle-sales.html',
-            js: 'js/modules/cycle-sales.js',
-            name: '周期销量统计'
-        },
-        'product': {
-            html: 'modules/product.html',
-            js: 'js/modules/product.js',
-            name: '商品信息查询'
-        },
-        'product-query': {
-            html: 'modules/product-query.html',
-            js: 'js/modules/product-query.js',
-            name: '商品查询模块'
-        }
+        'excel-sales': { html: 'modules/excel-sales.html', js: 'js/modules/excel-sales.js', name: 'Excel分组汇总' },
+        'excel-fill': { html: 'modules/excel-fill.html', js: 'js/modules/excel-fill.js', name: 'Excel数据匹配填充' },
+        'stock': { html: 'modules/stock.html', js: 'js/modules/stock.js', name: '库存统计' },
+        'order-summary': { html: 'modules/order-summary.html', js: 'js/modules/order-summary.js', name: '订单汇总' },
+        'shop-order': { html: 'modules/shop-order.html', js: 'js/modules/shop-order.js', name: '店铺订单统计' },
+        'cycle-sales': { html: 'modules/cycle-sales.html', js: 'js/modules/cycle-sales.js', name: '周期销量统计' },
+        'product': { html: 'modules/product.html', js: 'js/modules/product.js', name: '商品信息查询' },
+        'product-query': { html: 'modules/product-query.html', js: 'js/modules/product-query.js', name: '商品查询模块' }
     };
     
-    // 模块注册表
     const moduleRegistry = {};
+    const moduleCache = {}; // 新增：模块缓存池，存储已加载的 HTML 与 JS 实例
 
-    // 新增：私有方法 - 清除悬停定时器（统一管理，避免冗余代码）
     const clearHoverTimer = function() {
         if (hoverTimer) {
             clearTimeout(hoverTimer);
@@ -63,47 +25,29 @@ const ModulesManager = (function() {
     };
     
     return {
-        /**
-         * 初始化模块系统
-         */
         init: function() {
             console.log('模块系统初始化');
             this.setupEventListeners();
-            // 新增：初始化时绑定导航项的悬停/点击/移出事件（核心交互绑定）
             this.bindNavItemEvents();
         },
         
-        /**
-         * 设置全局事件监听器
-         */
         setupEventListeners: function() {
-            // 全局点击事件委托
             document.addEventListener('click', function(e) {
-                // 处理按钮点击
                 if (e.target.closest('.btn-primary, .btn-secondary, .btn-danger')) {
                     const button = e.target.closest('.btn-primary, .btn-secondary, .btn-danger');
-                    if (button) {
-                        handleButtonClick(button);
-                    }
+                    if (button) handleButtonClick(button);
                 }
-                
-                // 处理文件上传区域点击
                 if (e.target.closest('.file-upload-area')) {
                     const uploadArea = e.target.closest('.file-upload-area');
-                    if (uploadArea) {
-                        handleFileUploadClick(uploadArea);
-                    }
+                    if (uploadArea) handleFileUploadClick(uploadArea);
                 }
             });
             
-            // 全局拖拽事件
             document.addEventListener('dragover', function(e) {
                 if (e.target.closest('.file-upload-area')) {
                     e.preventDefault();
                     const uploadArea = e.target.closest('.file-upload-area');
-                    if (uploadArea) {
-                        uploadArea.style.borderColor = '#10b981';
-                    }
+                    if (uploadArea) uploadArea.style.borderColor = '#10b981';
                 }
             });
             
@@ -111,40 +55,31 @@ const ModulesManager = (function() {
                 if (e.target.closest('.file-upload-area')) {
                     e.preventDefault();
                     const uploadArea = e.target.closest('.file-upload-area');
-                    if (uploadArea && e.dataTransfer) {
-                        handleFileDrop(uploadArea, e.dataTransfer.files);
-                    }
+                    if (uploadArea && e.dataTransfer) handleFileDrop(uploadArea, e.dataTransfer.files);
                 }
             });
         },
 
-        /**
-         * 新增：绑定导航项的悬停/点击/移出事件（核心交互入口）
-         */
         bindNavItemEvents: function() {
             const navItems = document.querySelectorAll('.nav-item');
             navItems.forEach(item => {
                 const moduleId = item.getAttribute('data-target');
                 if (!moduleId) return;
 
-                // 1. 鼠标悬停：延迟300ms加载（原有逻辑）
                 item.addEventListener('mouseenter', () => {
                     this.setActiveModule(moduleId);
                 });
 
-                // 2. 鼠标点击：立即加载（新增核心功能）
                 item.addEventListener('click', (e) => {
-                    e.preventDefault(); // 阻止默认链接行为（若有）
+                    e.preventDefault();
                     this.setActiveModule(moduleId, true);
                 });
 
-                // 3. 鼠标移出：清除定时器（体验优化，防止滑过冗余加载）
                 item.addEventListener('mouseleave', () => {
                     clearHoverTimer();
                 });
             });
 
-            // 额外优化：鼠标移出整个导航容器，也清除定时器（兜底处理）
             const navContainer = document.querySelector('.nav-container') || document.querySelector('.nav');
             if (navContainer) {
                 navContainer.addEventListener('mouseleave', () => {
@@ -153,34 +88,21 @@ const ModulesManager = (function() {
             }
         },
         
-        /**
-         * 优化：设置活动模块（支持【悬停延迟/点击立即】，含全量体验优化）
-         * @param {string} moduleId - 模块ID
-         * @param {boolean} [isClick=false] - 是否为点击触发，默认false（悬停）
-         */
         setActiveModule: function(moduleId, isClick = false) {
-            // 基础校验：禁用悬停/模块未切换时，直接终止所有操作
             if (!isHoverEnabled || currentModule === moduleId) return;
-
-            // 核心优化1：无论点击/悬停，先清除原有定时器，避免多个延迟叠加、重复加载
             clearHoverTimer();
 
-            // 核心优化2：点击触发→立即加载（跳过所有延迟，符合点击即时性体验）
             if (isClick) {
                 this.loadModule(moduleId);
-                return; // 点击后直接返回，避免后续悬停逻辑干扰
+                return;
             }
 
-            // 悬停触发→保留300ms延迟（原逻辑），搭配鼠标移出清除，防止离开后仍加载
             hoverTimer = setTimeout(() => {
                 this.loadModule(moduleId);
-                clearHoverTimer(); // 执行后清空定时器，避免内存冗余
+                clearHoverTimer();
             }, 1000);
         },
         
-        /**
-         * 加载模块（原有逻辑，无修改）
-         */
         loadModule: function(moduleId) {
             if (!modulesConfig[moduleId]) {
                 console.error(`模块 ${moduleId} 未找到`);
@@ -189,20 +111,19 @@ const ModulesManager = (function() {
             
             isHoverEnabled = false;
             currentModule = moduleId;
-            
-            // 更新导航状态
             this.updateNavigationState(moduleId);
             
-            // 显示加载状态
-            this.showLoadingState(moduleId);
+            if (moduleCache[moduleId]) {
+                // 命中缓存：直接恢复 HTML 与 JS 实例
+                this.showCachedModule(moduleId);
+                isHoverEnabled = true;
+                return;
+            }
             
-            // 加载模块
+            this.showLoadingState(moduleId);
             this.loadModuleContent(moduleId);
         },
         
-        /**
-         * 更新导航状态（原有逻辑，无修改）
-         */
         updateNavigationState: function(moduleId) {
             const navItems = document.querySelectorAll('.nav-item');
             navItems.forEach(item => {
@@ -213,9 +134,6 @@ const ModulesManager = (function() {
             });
         },
         
-        /**
-         * 显示加载状态（原有逻辑，无修改）
-         */
         showLoadingState: function(moduleId) {
             const modulesContainer = document.getElementById('modules-container');
             if (!modulesContainer) {
@@ -238,9 +156,6 @@ const ModulesManager = (function() {
             `;
         },
         
-        /**
-         * 加载模块内容（原有逻辑，无修改）
-         */
         loadModuleContent: function(moduleId) {
             const moduleConfig = modulesConfig[moduleId];
             const modulesContainer = document.getElementById('modules-container');
@@ -251,7 +166,6 @@ const ModulesManager = (function() {
                 return;
             }
             
-            // 加载HTML
             fetch(moduleConfig.html)
                 .then(response => {
                     if (!response.ok) throw new Error('HTML加载失败');
@@ -259,19 +173,21 @@ const ModulesManager = (function() {
                 })
                 .then(html => {
                     modulesContainer.innerHTML = html;
-                    
-                    // 查找并激活功能面板
                     const functionPanel = modulesContainer.querySelector('.function-panel');
                     if (functionPanel) {
                         functionPanel.classList.add('active');
                         functionPanel.style.animation = 'fadeIn 0.3s ease';
                     }
                     
-                    // 绑定通用事件
                     this.bindCommonEvents(modulesContainer);
-                    
-                    // 加载模块JS
                     this.loadModuleScript(moduleId, modulesContainer);
+                    
+                    // 存入缓存
+                    moduleCache[moduleId] = {
+                        html: html,
+                        containerClone: modulesContainer.innerHTML,
+                        jsInitialized: false
+                    };
                     
                     isHoverEnabled = true;
                 })
@@ -296,14 +212,33 @@ const ModulesManager = (function() {
                 });
         },
         
-        /**
-         * 加载模块脚本（原有逻辑，无修改）
-         */
+        showCachedModule: function(moduleId) {
+            const cached = moduleCache[moduleId];
+            const modulesContainer = document.getElementById('modules-container');
+            if (!cached || !modulesContainer) return;
+            
+            modulesContainer.innerHTML = cached.containerClone;
+            const functionPanel = modulesContainer.querySelector('.function-panel');
+            if (functionPanel) {
+                functionPanel.classList.add('active');
+                functionPanel.style.animation = 'fadeIn 0.3s ease';
+            }
+            
+            this.bindCommonEvents(modulesContainer);
+            
+            // 如果 JS 尚未初始化，则初始化一次
+            if (!cached.jsInitialized) {
+                this.loadModuleScript(moduleId, modulesContainer);
+                cached.jsInitialized = true;
+            }
+            
+            this.updateNavigationState(moduleId);
+        },
+        
         loadModuleScript: function(moduleId, container) {
             const moduleConfig = modulesConfig[moduleId];
             if (!moduleConfig || !moduleConfig.js) return;
             
-            // 检查是否已加载
             if (moduleRegistry[moduleId]) {
                 if (typeof moduleRegistry[moduleId].init === 'function') {
                     moduleRegistry[moduleId].init(container);
@@ -311,12 +246,10 @@ const ModulesManager = (function() {
                 return;
             }
             
-            // 动态加载JS
             const script = document.createElement('script');
             script.src = moduleConfig.js;
             script.onload = () => {
                 console.log(`模块 ${moduleId} 脚本加载完成`);
-                // 调用模块初始化函数
                 if (typeof window[`init${moduleId.replace(/-/g, '_')}`] === 'function') {
                     window[`init${moduleId.replace(/-/g, '_')}`](container);
                 }
@@ -330,109 +263,71 @@ const ModulesManager = (function() {
             }
         },
         
-        /**
-         * 绑定通用事件（原有逻辑，无修改）
-         */
         bindCommonEvents: function(container) {
             if (!container) return;
             
-            // 表单输入框聚焦效果
             container.querySelectorAll('.form-control').forEach(input => {
                 input.addEventListener('focus', function() {
                     const parent = this.parentElement;
-                    if (parent) {
-                        parent.style.transform = 'translateY(-1px)';
-                    }
+                    if (parent) parent.style.transform = 'translateY(-1px)';
                 });
-                
                 input.addEventListener('blur', function() {
                     const parent = this.parentElement;
-                    if (parent) {
-                        parent.style.transform = 'translateY(0)';
-                    }
+                    if (parent) parent.style.transform = 'translateY(0)';
                 });
             });
             
-            // 数据卡片悬停效果
             container.querySelectorAll('.data-card').forEach(card => {
                 card.addEventListener('mouseenter', function() {
                     this.style.transform = 'translateY(-2px)';
                 });
-                
                 card.addEventListener('mouseleave', function() {
                     this.style.transform = 'translateY(0)';
                 });
             });
             
-            // 模块统计项悬停效果
             container.querySelectorAll('.stat-item').forEach(item => {
                 item.addEventListener('mouseenter', function() {
                     this.style.transform = 'scale(1.05)';
                 });
-                
                 item.addEventListener('mouseleave', function() {
                     this.style.transform = 'scale(1)';
                 });
             });
         },
         
-        /**
-         * 注册模块（原有逻辑，无修改）
-         */
         registerModule: function(moduleId, module) {
             moduleRegistry[moduleId] = module;
         },
         
-        /**
-         * 获取当前模块（原有逻辑，无修改）
-         */
         getCurrentModule: function() {
             return currentModule;
         },
         
-        /**
-         * 获取模块配置（原有逻辑，无修改）
-         */
         getModuleConfig: function(moduleId) {
             return modulesConfig[moduleId];
         },
         
-        /**
-         * 获取所有模块配置（原有逻辑，无修改）
-         */
         getAllModules: function() {
             return { ...modulesConfig };
         }
     };
 })();
 
-/**
- * 处理按钮点击（原有逻辑，无修改）
- */
 function handleButtonClick(button) {
     if (!button) return;
-    
     const originalText = button.innerHTML;
     const originalWidth = button.offsetWidth;
-    
-    // 保存原始状态
     button.style.minWidth = originalWidth + 'px';
-    
-    // 显示处理中状态
     button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 处理中...';
     button.disabled = true;
-    
-    // 模拟处理过程
     setTimeout(() => {
         button.innerHTML = '<i class="fas fa-check-circle"></i> 处理完成';
         button.style.background = 'linear-gradient(135deg, var(--success), #059669)';
-        
-        // 3秒后恢复原状
         setTimeout(() => {
             button.innerHTML = originalText;
             button.disabled = false;
             button.style.minWidth = '';
-            
             if (button.classList.contains('btn-primary')) {
                 button.style.background = 'linear-gradient(135deg, var(--primary), var(--primary-dark))';
             } else if (button.classList.contains('btn-secondary')) {
@@ -444,16 +339,11 @@ function handleButtonClick(button) {
     }, 1500);
 }
 
-/**
- * 处理文件上传点击（原有逻辑，无修改）
- */
 function handleFileUploadClick(uploadArea) {
     if (!uploadArea) return;
-    
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = '.xlsx,.xls';
-    
     input.onchange = function(e) {
         if (e.target.files.length > 0) {
             const fileName = e.target.files[0].name;
@@ -464,16 +354,11 @@ function handleFileUploadClick(uploadArea) {
             `;
         }
     };
-    
     input.click();
 }
 
-/**
- * 处理文件拖放（原有逻辑，无修改）
- */
 function handleFileDrop(uploadArea, files) {
     if (!uploadArea || !files || files.length === 0) return;
-    
     const fileName = files[0].name;
     uploadArea.innerHTML = `
         <i class="fas fa-file-excel"></i>
@@ -482,7 +367,6 @@ function handleFileDrop(uploadArea, files) {
     `;
 }
 
-// 页面加载完成后初始化模块管理器
 document.addEventListener('DOMContentLoaded', function() {
     ModulesManager.init();
 });

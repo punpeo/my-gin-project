@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"fmt"
 	"go-gin/internal/service"
 	"go-gin/pkg/response"
 	"strings"
@@ -71,7 +72,12 @@ func UploadAndProcessOrderExcel(c *gin.Context) {
 		response.Fail(c, 500, "处理订单数据失败："+err.Error())
 		return
 	}
-	response.SuccessWithMessage(c, "补单订单汇总已完成", gin.H{
+
+	message := "补单订单汇总已完成"
+	if summaryResult.DuplicateCount > 0 {
+		message = fmt.Sprintf("补单订单汇总已完成,重复订单是%s", summaryResult.DuplicateMessages)
+	}
+	response.SuccessWithMessage(c, message, gin.H{
 		"base64_content":      base64Content,
 		"fills_name":          summaryResult.FillsName,
 		"total_unique_order":  summaryResult.TotalUniqueOrder,
