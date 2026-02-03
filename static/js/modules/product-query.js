@@ -1,7 +1,7 @@
 /**
- * 商品查询模块 - 方案二（改造版）：移除查询成功/失败消息弹出，仅保留loading提示
- * 按钮type="button"绑定click事件，彻底规避表单默认行为，稳定性最高
- * 核心修改：删除查询操作的success/error消息提示，仅保留loading状态
+ * 商品查询模块 - 最终完整版（行操作UI重设计）
+ * 核心功能：1.表格行编辑/复制按钮UI全新设计（整洁美观、清晰区分）2.输入框右侧清除叉号 3.表格复制编码自动解析
+ * 4.双复制按钮（顶部批量+行内单行）5.仅查询loading提示 6.防表单冲突 7.完整业务功能（增删改查/导入/分页）
  */
 (function () {
     if (window.ProductQueryModule && window.ProductQueryModule.initialized) {
@@ -33,11 +33,14 @@
 
                 this._cacheDOM();
                 this._checkDOMValid();
+                this._createClearIcons();
                 this._bindEvents();
                 this._initPagination();
                 this._initModal();
+                this._updateBatchCopyBtnStatus();
+                this._updateClearIconStatus();
 
-                console.log('ProductQueryModule 初始化成功（方案二改造版：移除查询消息提示）');
+                console.log('ProductQueryModule 初始化成功（行操作UI重设计版）');
             } catch (e) {
                 console.error('ProductQueryModule 初始化失败：', e.message);
                 this.initialized = false;
@@ -47,28 +50,22 @@
         _cacheDOM: function () {
             const c = this.container;
             this.el = {
-                // 查询表单核心元素
-                queryForm: c.querySelector('#query-form'),
                 inputBarCode: c.querySelector('#input-barCode'),
                 inputBusinessCode: c.querySelector('#input-businessCode'),
-                btnQuery: c.querySelector('#btn-query'), // 重点：缓存查询按钮
-                // 消息提示
+                btnQuery: c.querySelector('#btn-query'),
                 responseContainer: c.querySelector('#query-response-container'),
-                // 表格相关
                 tableBody: c.querySelector('#table-body'),
                 tableEmpty: c.querySelector('#table-empty'),
                 checkAll: c.querySelector('#check-all'),
-                // 分页相关
                 selectPageSize: c.querySelector('#select-pageSize'),
                 totalCount: c.querySelector('#total-count'),
                 currentPage: c.querySelector('#current-page'),
                 totalPage: c.querySelector('#total-page'),
                 btnPrevPage: c.querySelector('#btn-prevPage'),
                 btnNextPage: c.querySelector('#btn-nextPage'),
-                // 工具栏
                 btnAdd: c.querySelector('#btn-add'),
                 btnImport: c.querySelector('#btn-import'),
-                // 弹窗相关
+                btnCopyBatch: c.querySelector('#btn-copy-batch'),
                 modalMask: c.querySelector('#modal-mask'),
                 modalAdd: c.querySelector('#modal-add-product'),
                 formAdd: c.querySelector('#form-add-product'),
@@ -93,8 +90,9 @@
             const coreElements = [
                 { key: 'btnQuery', name: '查询按钮#btn-query' },
                 { key: 'inputBarCode', name: '条码输入框#input-barCode' },
-                { key: 'selectPageSize', name: '页数选择器#select-pageSize' },
-                { key: 'tableBody', name: '表格主体#table-body' }
+                { key: 'inputBusinessCode', name: '事业部编码输入框#input-businessCode' },
+                { key: 'tableBody', name: '表格主体#table-body' },
+                { key: 'btnCopyBatch', name: '批量复制按钮#btn-copy-batch' }
             ];
             const missing = [];
             coreElements.forEach(item => {
@@ -105,24 +103,81 @@
             }
         },
 
-        // 绑定事件：核心 - 按钮click事件，无默认行为干扰
+        _createClearIcons: function () {
+            const createIcon = (input) => {
+                if (input.nextElementSibling?.classList.contains('input-clear-icon')) return;
+                const icon = document.createElement('i');
+                icon.className = 'fas fa-times input-clear-icon';
+                Object.assign(icon.style, {
+                    position: 'absolute',
+                    right: '8px',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    cursor: 'pointer',
+                    color: '#999',
+                    fontSize: '14px',
+                    display: 'none',
+                    zIndex: '10'
+                });
+                if (input.parentElement) {
+                    input.parentElement.style.position = 'relative';
+                    input.parentElement.style.paddingRight = '24px';
+                }
+                input.parentNode.insertBefore(icon, input.nextSibling);
+                icon.addEventListener('click', () => {
+                    input.value = '';
+                    this._updateClearIconStatus();
+                });
+            };
+            createIcon(this.el.inputBarCode);
+            createIcon(this.el.inputBusinessCode);
+        },
+
+        _updateClearIconStatus: function () {
+            const updateSingleIcon = (input) => {
+                const icon = input.nextElementSibling;
+                if (icon?.classList.contains('input-clear-icon')) {
+                    icon.style.display = input.value.trim() ? 'block' : 'none';
+                }
+            };
+            updateSingleIcon(this.el.inputBarCode);
+            updateSingleIcon(this.el.inputBusinessCode);
+        },
+
+        _parseCodeText: function (text) {
+            if (!text) return '';
+            return text
+                .replace(/[\n\r\t\s]+/g, ',')
+                .replace(/,+/g, ',')
+                .replace(/^,|,$/g, '');
+        },
+
         _bindEvents: function () {
             const el = this.el;
             const that = this;
 
-            // 核心：查询按钮直接绑定click事件
-            el.btnQuery.addEventListener('click', function () {
-                that._handleQuery();
+            el.inputBarCode.addEventListener('paste', function (e) {
+                e.preventDefault();
+                const pasteText = e.clipboardData?.getData('text') || '';
+                this.value = that._parseCodeText(pasteText);
+                that._updateClearIconStatus();
             });
+            el.inputBarCode.addEventListener('input', () => that._updateClearIconStatus());
 
-            // 页数选择change事件（正常保留，切换条数重新查询）
+            el.inputBusinessCode.addEventListener('paste', function (e) {
+                e.preventDefault();
+                const pasteText = e.clipboardData?.getData('text') || '';
+                this.value = that._parseCodeText(pasteText);
+                that._updateClearIconStatus();
+            });
+            el.inputBusinessCode.addEventListener('input', () => that._updateClearIconStatus());
+
+            el.btnQuery.addEventListener('click', () => that._handleQuery());
             el.selectPageSize.addEventListener('change', function () {
                 that.state.pageSize = Number(this.value);
                 that.state.currentPage = 1;
                 that._handleQuery();
             });
-
-            // 上一页/下一页
             el.btnPrevPage.addEventListener('click', () => {
                 if (that.state.currentPage > 1) {
                     that.state.currentPage--;
@@ -137,17 +192,10 @@
                 }
             });
 
-            // 工具栏：新增商品
-            el.btnAdd.addEventListener('click', () => {
-                that._openAddModal();
-            });
+            el.btnAdd.addEventListener('click', () => that._openAddModal());
+            el.btnImport.addEventListener('click', () => that._openImportModal());
+            el.btnCopyBatch.addEventListener('click', () => that._handleBatchCopy());
 
-            // 工具栏：导入Excel
-            el.btnImport.addEventListener('click', () => {
-                that._openImportModal();
-            });
-
-            // 新增弹窗：关闭/取消/提交
             el.modalCloseAdd.addEventListener('click', () => that._closeAddModal());
             el.btnCancelAdd.addEventListener('click', () => that._closeAddModal());
             el.formAdd.addEventListener('submit', function (e) {
@@ -155,35 +203,36 @@
                 that._handleAddOrEdit();
             });
 
-            // 导入弹窗：关闭/取消/文件选择/提交
             el.modalCloseImport.addEventListener('click', () => that._closeImportModal());
             el.btnCancelImport.addEventListener('click', () => that._closeImportModal());
-            el.inputExcelFile.addEventListener('change', function () {
-                that._handleFileSelect(this.files);
-            });
+            el.inputExcelFile.addEventListener('change', (e) => that._handleFileSelect(e.target.files));
             el.btnSubmitImport.addEventListener('click', () => that._handleImport());
 
-            // 表格行事件委托（编辑/复制）
             el.tableBody.addEventListener('click', function (e) {
                 const target = e.target;
-                const editBtn = target.closest('.btn-edit');
+                const editBtn = target.closest('.btn-row-edit');
+                const copyBtn = target.closest('.btn-row-copy');
                 if (editBtn) {
-                    const barCode = editBtn.dataset.code;
-                    that._handleEdit(barCode);
+                    that._handleEdit(editBtn.dataset.code);
                     return;
                 }
-                const copyBtn = target.closest('.btn-copy');
                 if (copyBtn) {
-                    const barCode = copyBtn.dataset.code;
-                    that._handleCopy(barCode);
+                    that._handleSingleCopy(copyBtn.dataset.code);
                     return;
                 }
             });
 
-            // 全选复选框
             el.checkAll.addEventListener('change', function () {
                 const checkItems = el.tableBody.querySelectorAll('.check-item');
                 checkItems.forEach(item => item.checked = this.checked);
+                that._updateBatchCopyBtnStatus();
+            });
+            el.tableBody.addEventListener('change', function (e) {
+                if (e.target.classList.contains('check-item')) {
+                    that._updateBatchCopyBtnStatus();
+                    const allChecked = Array.from(el.tableBody.querySelectorAll('.check-item')).every(item => item.checked);
+                    el.checkAll.checked = allChecked;
+                }
             });
         },
 
@@ -198,62 +247,67 @@
             this.el.modalImport.style.display = 'none';
         },
 
-        // 核心改造：_handleQuery 移除查询success/error消息提示，仅保留loading
+        _updateBatchCopyBtnStatus: function () {
+            const checkItems = this.el.tableBody.querySelectorAll('.check-item');
+            this.el.btnCopyBatch.disabled = !Array.from(checkItems).some(item => item.checked);
+        },
+
+        _formatTableData: function (rowData) {
+            return [
+                rowData.shop || '',
+                rowData.product_name || '',
+                rowData.bar_code || '',
+                rowData.business_code || '',
+                rowData.merchant_code || ''
+            ].join('\t');
+        },
+
+        _copyToClipboard: async function (text) {
+            try {
+                await navigator.clipboard.writeText(text);
+            } catch (e) {
+                console.error('复制失败：', e);
+            }
+        },
+
         _handleQuery: async function () {
             try {
                 const { valid, errorInput } = this._validateQueryForm();
                 if (!valid) {
-                    errorInput && errorInput.focus();
+                    errorInput?.focus();
                     return;
                 }
-
-                const barCodes = this.el.inputBarCode.value.trim()
-                    ? this.el.inputBarCode.value.trim().split(',').map(item => item.trim())
-                    : [];
-                const businessCodes = this.el.inputBusinessCode.value.trim()
-                    ? this.el.inputBusinessCode.value.trim().split(',').map(item => item.trim())
-                    : [];
-
+                const barCodes = this.el.inputBarCode.value.trim().split(',').map(item => item.trim()).filter(Boolean);
+                const businessCodes = this.el.inputBusinessCode.value.trim().split(',').map(item => item.trim()).filter(Boolean);
                 this.state.barCodes = barCodes;
                 this.state.businessCodes = businessCodes;
 
-                // 仅保留：查询过程中显示loading提示
                 this._showMessage('loading', '正在查询数据，请稍候...');
-
-                // 发起查询请求
                 const res = await this.queryProduct({
                     currentPage: this.state.currentPage,
                     pageSize: this.state.pageSize,
-                    barCodes: this.state.barCodes,
-                    businessCodes: this.state.businessCodes
+                    barCodes,
+                    businessCodes
                 });
 
-                // 核心修改1：查询完成后立即清空loading提示（不显示成功消息）
                 this._clearMessage();
-                
-                // 处理响应，仅渲染表格和更新分页，无任何弹窗提示
                 if (res.code === 0) {
-                    const { list, total } = res.data;
-                    this.state.total = total;
-                    this._renderTable(list);
+                    this.state.total = res.data.total;
+                    this._renderTable(res.data.list);
                     this._updatePaginationUI();
-                    // 移除：查询成功的消息提示
                 } else {
-                    // 移除：查询失败的消息提示，仅控制台打印错误（便于调试）
-                    console.warn('查询接口返回失败：', res.msg || '未知错误');
+                    console.warn('查询失败：', res.msg);
                 }
             } catch (e) {
-                // 核心修改2：异常时立即清空loading提示，仅控制台打印错误
                 this._clearMessage();
-                console.error('查询异常：', e.message);
-                // 移除：查询异常的消息提示
+                console.error('查询异常：', e);
+            } finally {
+                this._updateBatchCopyBtnStatus();
             }
         },
 
         _validateQueryForm: function () {
             const barCodeVal = this.el.inputBarCode.value.trim();
-            const businessCodeVal = this.el.inputBusinessCode.value.trim();
-
             if (barCodeVal) {
                 const barCodes = barCodeVal.split(',').map(item => item.trim());
                 for (const code of barCodes) {
@@ -263,8 +317,38 @@
                     }
                 }
             }
-
             return { valid: true, errorInput: null };
+        },
+
+        _handleBatchCopy: async function () {
+            const checkItems = this.el.tableBody.querySelectorAll('.check-item:checked');
+            if (!checkItems.length) return;
+            const copyData = [];
+            checkItems.forEach(item => {
+                const row = item.closest('.table-item');
+                copyData.push(this._formatTableData({
+                    shop: row.querySelector('.col-shop').textContent.trim(),
+                    product_name: row.querySelector('.col-prod-name').textContent.trim(),
+                    bar_code: row.querySelector('.col-barcode').textContent.trim(),
+                    business_code: row.querySelector('.col-business-code').textContent.trim(),
+                    merchant_code: row.querySelector('.col-merchant-code').textContent.trim()
+                }));
+            });
+            await this._copyToClipboard(copyData.join('\n'));
+        },
+
+        _handleSingleCopy: async function (barCode) {
+            const copyBtn = this.el.tableBody.querySelector(`.btn-row-copy[data-code="${barCode}"]`);
+            if (!copyBtn) return;
+            const row = copyBtn.closest('.table-item');
+            const copyText = this._formatTableData({
+                shop: row.querySelector('.col-shop').textContent.trim(),
+                product_name: row.querySelector('.col-prod-name').textContent.trim(),
+                bar_code: row.querySelector('.col-barcode').textContent.trim(),
+                business_code: row.querySelector('.col-business-code').textContent.trim(),
+                merchant_code: row.querySelector('.col-merchant-code').textContent.trim()
+            });
+            await this._copyToClipboard(copyText);
         },
 
         _validateAddEditForm: function () {
@@ -275,7 +359,6 @@
             const merchantCode = this.el.inputAddMerchantCode.value.trim();
 
             this._clearFormValidateStyle(this.el.formAdd);
-
             if (!shop) {
                 this._setFormInvalid(this.el.inputAddShop, '店铺名称为必填项');
                 return false;
@@ -285,7 +368,7 @@
                 return false;
             }
             if (!barCode || !/^\d{13}$/.test(barCode)) {
-                this._setFormInvalid(this.el.inputAddBarCode, '商品条码为必填项，且必须是13位数字');
+                this._setFormInvalid(this.el.inputAddBarCode, '商品条码为必填项，且必须是13位纯数字');
                 return false;
             }
             if (!businessCode) {
@@ -296,7 +379,6 @@
                 this._setFormInvalid(this.el.inputAddMerchantCode, '商家商品标识为必填项');
                 return false;
             }
-
             return true;
         },
 
@@ -309,10 +391,8 @@
         },
 
         _clearFormValidateStyle: function (form) {
-            const invalidInputs = form.querySelectorAll('.is-invalid');
-            invalidInputs.forEach(input => input.classList.remove('is-invalid'));
-            const errorTexts = form.querySelectorAll('.invalid-feedback');
-            errorTexts.forEach(el => el.textContent = '');
+            form.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
+            form.querySelectorAll('.invalid-feedback').forEach(el => el.textContent = '');
         },
 
         _openAddModal: function () {
@@ -350,25 +430,21 @@
                 this.el.btnSubmitImport.disabled = true;
                 return;
             }
-
             const file = files[0];
-            const fileExt = file.name.split('.').pop().toLowerCase();
-            const maxSize = 2 * 1024 * 1024;
-
-            if (fileExt !== 'xlsx') {
+            const ext = file.name.split('.').pop().toLowerCase();
+            const maxSize = 2 * 1024 * 1024; // 2MB
+            if (ext !== 'xlsx') {
                 this._showMessage('error', '仅支持.xlsx格式的Excel文件');
                 this.el.textFileName.textContent = '未选择任何文件';
                 this.el.btnSubmitImport.disabled = true;
                 return;
             }
-
             if (file.size > maxSize) {
                 this._showMessage('error', '文件大小不能超过2MB');
                 this.el.textFileName.textContent = '未选择任何文件';
                 this.el.btnSubmitImport.disabled = true;
                 return;
             }
-
             this.el.textFileName.textContent = file.name;
             this.el.btnSubmitImport.disabled = false;
         },
@@ -376,7 +452,6 @@
         _handleAddOrEdit: async function () {
             try {
                 if (!this._validateAddEditForm()) return;
-
                 const productData = {
                     shop: this.el.inputAddShop.value.trim(),
                     product_name: this.el.inputAddProductName.value.trim(),
@@ -384,21 +459,15 @@
                     business_code: this.el.inputAddBusinessCode.value.trim(),
                     merchant_code: this.el.inputAddMerchantCode.value.trim()
                 };
-
                 this.el.btnSubmitAdd.disabled = true;
                 this._showMessage('loading', this.state.editId ? '正在修改商品...' : '正在新增商品...');
-
-                let res;
-                if (this.state.editId) {
-                    res = await this.editProduct({ id: this.state.editId, ...productData });
-                } else {
-                    res = await this.createProduct(productData);
-                }
+                const res = this.state.editId 
+                    ? await this.editProduct({ id: this.state.editId, ...productData })
+                    : await this.createProduct(productData);
 
                 this._clearMessage();
                 if (res.code === 0) {
-                    const msg = this.state.editId ? '修改商品成功' : '新增商品成功';
-                    this._showMessage('success', msg);
+                    this._showMessage('success', this.state.editId ? '修改商品成功' : '新增商品成功');
                     this._closeAddModal();
                     this._handleQuery();
                 } else {
@@ -406,9 +475,8 @@
                 }
             } catch (e) {
                 this._clearMessage();
-                const msg = this.state.editId ? '修改商品异常' : '新增商品异常';
-                this._showMessage('error', `${msg}：${e.message}`);
-                console.error(msg, e);
+                this._showMessage('error', `${this.state.editId ? '修改商品异常' : '新增商品异常'}：${e.message}`);
+                console.error(e);
             } finally {
                 this.el.btnSubmitAdd.disabled = false;
             }
@@ -421,13 +489,10 @@
                     this._showMessage('error', '请选择要导入的Excel文件');
                     return;
                 }
-
                 const formData = new FormData();
                 formData.append('file', file);
-
                 this.el.btnSubmitImport.disabled = true;
                 this._showMessage('loading', '正在导入数据，请稍候（请勿刷新页面）...');
-
                 const res = await this.importExcel(formData);
 
                 this._clearMessage();
@@ -441,24 +506,21 @@
             } catch (e) {
                 this._clearMessage();
                 this._showMessage('error', `导入异常：${e.message}`);
-                console.error('Excel导入失败：', e);
+                console.error(e);
             } finally {
                 this.el.btnSubmitImport.disabled = false;
             }
         },
 
         _handleEdit: function (barCode) {
-            const row = this.el.tableBody.querySelector(`.btn-edit[data-code="${barCode}"]`).closest('.table-item');
+            const row = this.el.tableBody.querySelector(`[data-code="${barCode}"]`).closest('.table-item');
             if (!row) return;
-
-            const cols = row.querySelectorAll('.table-col');
             this.state.editId = row.dataset.id;
-            this.el.inputAddShop.value = cols[1].textContent.trim();
-            this.el.inputAddProductName.value = cols[2].textContent.trim();
-            this.el.inputAddBarCode.value = cols[3].textContent.trim();
-            this.el.inputAddBusinessCode.value = cols[4].textContent.trim();
-            this.el.inputAddMerchantCode.value = cols[5].textContent.trim();
-
+            this.el.inputAddShop.value = row.querySelector('.col-shop').textContent.trim();
+            this.el.inputAddProductName.value = row.querySelector('.col-prod-name').textContent.trim();
+            this.el.inputAddBarCode.value = row.querySelector('.col-barcode').textContent.trim();
+            this.el.inputAddBusinessCode.value = row.querySelector('.col-business-code').textContent.trim();
+            this.el.inputAddMerchantCode.value = row.querySelector('.col-merchant-code').textContent.trim();
             this._clearFormValidateStyle(this.el.formAdd);
             this.el.modalAdd.querySelector('.modal-title').innerHTML = '<i class="fas fa-edit"></i> 编辑商品';
             this.el.modalMask.style.display = 'block';
@@ -466,39 +528,24 @@
             this.el.inputAddShop.focus();
         },
 
-        _handleCopy: function (barCode) {
-            const row = this.el.tableBody.querySelector(`.btn-copy[data-code="${barCode}"]`).closest('.table-item');
-            if (!row) return;
-
-            const cols = row.querySelectorAll('.table-col');
-            this.state.editId = null;
-            this.el.inputAddShop.value = cols[1].textContent.trim();
-            this.el.inputAddProductName.value = cols[2].textContent.trim();
-            this.el.inputAddBarCode.value = '';
-            this.el.inputAddBusinessCode.value = cols[4].textContent.trim();
-            this.el.inputAddMerchantCode.value = cols[5].textContent.trim();
-
-            this._clearFormValidateStyle(this.el.formAdd);
-            this.el.modalAdd.querySelector('.modal-title').innerHTML = '<i class="fas fa-plus"></i> 新增商品（复制）';
-            this.el.modalMask.style.display = 'block';
-            this.el.modalAdd.style.display = 'block';
-            this.el.inputAddShop.focus();
-        },
-
+        // 🔴 核心修改：表格行渲染 - 重设计编辑/复制按钮UI
         _renderTable: function (list) {
             const el = this.el;
             el.tableBody.innerHTML = '';
+            el.checkAll.checked = false;
 
             if (!Array.isArray(list) || list.length === 0) {
                 el.tableEmpty.classList.add('show');
                 return;
             }
-
             el.tableEmpty.classList.remove('show');
+
             list.forEach(item => {
                 const row = document.createElement('div');
                 row.className = 'table-item';
                 row.dataset.id = item.id;
+                row.dataset.code = item.bar_code;
+                // 重设计的操作列：编辑+复制按钮 差异化样式、整洁布局、hover交互
                 row.innerHTML = `
                     <div class="table-col col-check">
                         <label class="check-box">
@@ -511,126 +558,140 @@
                     <div class="table-col col-barcode">${item.bar_code || ''}</div>
                     <div class="table-col col-business-code">${item.business_code || ''}</div>
                     <div class="table-col col-merchant-code">${item.merchant_code || ''}</div>
-                    <div class="table-col col-operate">
-                        <button class="btn btn-sm btn-edit" data-code="${item.bar_code}">编辑</button>
-                        <button class="btn btn-sm btn-copy" data-code="${item.bar_code}">复制</button>
+                    <div class="table-col col-operate" style="padding: 8px 0; text-align: center; min-width: 120px;">
+                        <!-- 编辑按钮：主色+编辑图标+hover效果 -->
+                        <button class="btn-row-edit" data-code="${item.bar_code}" style="
+                            height: 28px;
+                            padding: 0 12px;
+                            margin-right: 8px;
+                            border: none;
+                            border-radius: 4px;
+                            background: #409eff;
+                            color: #fff;
+                            font-size: 12px;
+                            cursor: pointer;
+                            display: inline-flex;
+                            align-items: center;
+                            justify-content: center;
+                            gap: 4px;
+                            transition: all 0.2s ease;
+                        ">
+                            <i class="fas fa-edit" style="font-size: 11px;"></i>
+                            编辑
+                        </button>
+                        <!-- 复制按钮：中性色+复制图标+hover效果 -->
+                        <button class="btn-row-copy" data-code="${item.bar_code}" style="
+                            height: 28px;
+                            padding: 0 12px;
+                            border: none;
+                            border-radius: 4px;
+                            background: #f5f7fa;
+                            color: #606266;
+                            font-size: 12px;
+                            cursor: pointer;
+                            display: inline-flex;
+                            align-items: center;
+                            justify-content: center;
+                            gap: 4px;
+                            transition: all 0.2s ease;
+                        ">
+                            <i class="fas fa-copy" style="font-size: 11px;"></i>
+                            复制
+                        </button>
                     </div>
                 `;
+                // 为按钮添加hover样式（动态添加，避免行内样式重复）
+                const editBtn = row.querySelector('.btn-row-edit');
+                const copyBtn = row.querySelector('.btn-row-copy');
+                editBtn.addEventListener('mouseenter', () => {
+                    editBtn.style.background = '#66b1ff';
+                    editBtn.style.transform = 'scale(1.05)';
+                });
+                editBtn.addEventListener('mouseleave', () => {
+                    editBtn.style.background = '#409eff';
+                    editBtn.style.transform = 'scale(1)';
+                });
+                copyBtn.addEventListener('mouseenter', () => {
+                    copyBtn.style.background = '#e4e7ed';
+                    copyBtn.style.transform = 'scale(1.05)';
+                });
+                copyBtn.addEventListener('mouseleave', () => {
+                    copyBtn.style.background = '#f5f7fa';
+                    copyBtn.style.transform = 'scale(1)';
+                });
                 el.tableBody.appendChild(row);
             });
         },
 
         _updatePaginationUI: function () {
             const el = this.el;
-            const total = this.state.total;
-            const pageSize = this.state.pageSize;
-            const currentPage = this.state.currentPage;
-            const totalPage = Math.ceil(total / pageSize) || 1;
-
-            el.totalCount.textContent = total;
-            el.currentPage.textContent = currentPage;
+            const totalPage = Math.ceil(this.state.total / this.state.pageSize) || 1;
+            el.totalCount.textContent = this.state.total;
+            el.currentPage.textContent = this.state.currentPage;
             el.totalPage.textContent = totalPage;
-
-            el.btnPrevPage.disabled = currentPage <= 1;
-            el.btnNextPage.disabled = currentPage >= totalPage;
+            el.btnPrevPage.disabled = this.state.currentPage <= 1;
+            el.btnNextPage.disabled = this.state.currentPage >= totalPage;
         },
 
-        // 保留消息显示方法（供loading、表单校验、新增/导入等功能使用）
         _showMessage: function (type, msg) {
             const container = this.el.responseContainer;
             container.innerHTML = '';
             const msgEl = document.createElement('div');
             msgEl.className = `query-response-content ${type}`;
-
-            if (type === 'loading') {
-                msgEl.innerHTML = `<i class="fas fa-spinner fa-spin"></i> ${msg}`;
-            } else {
-                const iconMap = {
-                    success: 'fas fa-check-circle',
-                    error: 'fas fa-exclamation-circle',
-                    info: 'fas fa-info-circle'
-                };
-                msgEl.innerHTML = `<i class="${iconMap[type] || 'fas fa-info-circle'}"></i> ${msg}`;
-            }
+            msgEl.innerHTML = type === 'loading' 
+                ? `<i class="fas fa-spinner fa-spin"></i> ${msg}`
+                : `<i class="fas ${type === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle'}"></i> ${msg}`;
             container.appendChild(msgEl);
-
             if (type !== 'loading') {
-                setTimeout(() => {
-                    container.innerHTML = '';
-                }, 3000);
+                setTimeout(() => container.innerHTML = '', 3000);
             }
         },
 
-        // 新增：清空消息提示的工具方法（查询完成后立即调用）
         _clearMessage: function () {
-            const container = this.el.responseContainer;
-            container.innerHTML = '';
+            this.el.responseContainer.innerHTML = '';
         },
 
-        // 后端接口请求方法
-        createProduct: async function (productData) {
-            const res = await fetch(`${this.apiBase}/create`, {
+        // 后端接口
+        createProduct: async function (data) {
+            return fetch(`${this.apiBase}/create`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(productData)
-            });
-            return await res.json();
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            }).then(res => res.json());
         },
-
-        editProduct: async function (productData) {
-            const res = await fetch(`${this.apiBase}/edit`, {
+        editProduct: async function (data) {
+            return fetch(`${this.apiBase}/edit`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(productData)
-            });
-            return await res.json();
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            }).then(res => res.json());
         },
-
         importExcel: async function (formData) {
-            const res = await fetch(`${this.apiBase}/import-excel`, {
+            return fetch(`${this.apiBase}/import-excel`, {
                 method: 'POST',
                 body: formData
-            });
-            return await res.json();
+            }).then(res => res.json());
         },
-
-        queryProduct: async function (queryParams) {
-            const res = await fetch(`${this.apiBase}/all-with-page`, {
+        queryProduct: async function (params) {
+            return fetch(`${this.apiBase}/all-with-page`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(queryParams)
-            });
-            return await res.json();
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(params)
+            }).then(res => res.json());
         }
     };
 
     window.ProductQueryModule = ProductQueryModule;
-
 })();
 
-// 模块初始化入口函数（与原方案一致，无需修改）
+// 初始化入口
 function initproduct_query(container) {
-    let containerEl;
-    if (typeof container === 'string') {
-        containerEl = document.querySelector(container);
-    } else if (container instanceof HTMLElement) {
-        containerEl = container;
-    } else {
-        console.error('initproduct_query 失败：容器参数无效');
+    let containerEl = typeof container === 'string' ? document.querySelector(container) : container;
+    if (!(containerEl instanceof HTMLElement)) {
+        console.error('initproduct_query 失败：容器必须是有效的DOM元素或选择器');
         return;
     }
-
-    if (typeof window.ProductQueryModule === 'undefined') {
-        console.error('ProductQueryModule未定义，请确保product-query.js已正确加载');
-    } else if (window.ProductQueryModule.initialized) {
-        console.log('ProductQueryModule 已初始化，跳过重复初始化');
-    } else {
+    if (window.ProductQueryModule && !window.ProductQueryModule.initialized) {
         window.ProductQueryModule.init(containerEl);
     }
 }
