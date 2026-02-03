@@ -7,7 +7,7 @@ document.addEventListener('DOMContentLoaded', function() {
         'order-summary': 'modules/order-summary.html',
         'shop-order': 'modules/shop-order.html',
         'cycle-sales': 'modules/cycle-sales.html',
-        'dev-module-1': 'modules/dev-module-1.html',
+        'dev-module-1': 'modules/product.html',
         'dev-module-2': 'modules/dev-module-2.html'
     };
     

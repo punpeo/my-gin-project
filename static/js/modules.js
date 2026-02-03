@@ -44,10 +44,10 @@ const ModulesManager = (function() {
             js: 'js/modules/product.js',
             name: '商品信息查询'
         },
-        'dev-module-2': {
-            html: 'modules/dev-module-2.html',
-            js: 'js/modules/dev-module-2.js',
-            name: '数据可视化模块'
+        'product-query': {
+            html: 'modules/product-query.html',
+            js: 'js/modules/product-query.js',
+            name: '商品查询模块'
         }
     };
     

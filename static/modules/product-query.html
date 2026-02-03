@@ -1,0 +1,88 @@
+<div class="main-content">
+    <!-- 商品查询表单：原有结构，无任何修改 -->
+    <form class="form-grid" id="query-form">
+        <div class="form-row-3">
+            <div class="form-group">
+                <label class="form-label"><i class="fas fa-barcode"></i> 商品条码</label>
+                <input type="text" class="form-control" name="barCode" id="barCode"
+                    placeholder="请输入商品条码（如6977676160984）">
+            </div>
+            <div class="form-group">
+                <label class="form-label"><i class="fas fa-code"></i> 事业部编码</label>
+                <input type="text" class="form-control" name="businessCode" id="businessCode" placeholder="请输入事业部编码">
+            </div>
+            <div class="form-group">
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-search"></i> 执行查询
+                </button>
+            </div>
+        </div>
+    </form>
+
+    <!-- 数据列表容器：原有结构，补充核心元素ID -->
+    <div class="data-table">
+        <div class="table-toolbar">
+            <div class="toolbar-left">
+                <button class="btn btn-add">
+                    <i class="fas fa-plus"></i> 新增商品
+                </button>
+            </div>
+            <div class="toolbar-right">
+                <button class="btn btn-delete">
+                    <i class="fas fa-trash"></i> 删除产品
+                </button>
+                <button class="btn btn-import">
+                    <i class="fas fa-file-import"></i> 批量导入
+                </button>
+                <button class="btn btn-copy-batch">
+                    <i class="fas fa-copy"></i> 复制
+                </button>
+            </div>
+        </div>
+
+        <div class="data-table-header">
+            <div class="table-col col-check">
+                <label class="check-box check-all">
+                    <input type="checkbox" id="checkAll">
+                    <span class="check-square"></span>
+                </label>
+            </div>
+            <div class="table-col col-shop">店铺</div>
+            <div class="table-col col-prod-name">产品名称</div>
+            <div class="table-col col-barcode">商品条码</div>
+            <div class="table-col col-business-code">事业部商品编码</div>
+            <div class="table-col col-merchant-code">商家商品标识</div>
+            <div class="table-col col-operate">操作</div>
+        </div>
+
+        <!-- 列表主体：补充ID -->
+        <div class="data-table-body" id="dataTableBody">
+            <!-- 无数据占位：补充ID -->
+            <div class="table-empty" id="tableEmpty">
+                <i class="fas fa-search-none"></i>
+                <p>暂无匹配的商品数据</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- 分页功能区域：原有结构，补充所有分页元素ID -->
+    <div class="pagination-wrap">
+        <div class="page-size">
+            <span>每页显示：</span>
+            <select class="form-control" id="pageSize">
+                <option value="10" selected>10条</option>
+                <option value="20">20条</option>
+                <option value="50">50条</option>
+                <option value="100">100条</option>
+            </select>
+        </div>
+        <div class="page-stats">
+            共 <span class="total-count" id="totalCount">0</span> 条数据 | 第 <span class="current-page"
+                id="currentPage">1</span> / <span class="total-page" id="totalPage">1</span> 页
+        </div>
+        <div class="page-buttons">
+            <button class="btn btn-page" id="prevPage" disabled>上一页</button>
+            <button class="btn btn-page" id="nextPage" disabled>下一页</button>
+        </div>
+    </div>
+</div>
