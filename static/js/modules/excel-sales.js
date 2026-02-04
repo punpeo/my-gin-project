@@ -77,10 +77,7 @@
         },
 
         bindEvents() {
-
-
             if (this.elements.processBtn) {
-
                 this.elements.processBtn.addEventListener('click', (e) => {
                     this.handleProcess(e);
                 });
@@ -88,21 +85,11 @@
                 console.error('处理按钮元素未找到');
             }
 
-            if (this.elements.basePathInput) {
-                this.elements.basePathInput.addEventListener('input', () => this.validateInputs());
-            }
-
-            if (this.elements.matchColumnInput) {
-                this.elements.matchColumnInput.addEventListener('input', () => this.validateInputs());
-            }
-
-            if (this.elements.keepColumnsInput) {
-                this.elements.keepColumnsInput.addEventListener('input', () => this.validateInputs());
-            }
-
-            if (this.elements.sumColumnInput) {
-                this.elements.sumColumnInput.addEventListener('input', () => this.validateInputs());
-            }
+            // 输入框实时校验 - 数组遍历简化绑定
+            [this.elements.basePathInput, this.elements.matchColumnInput, this.elements.keepColumnsInput,
+            this.elements.sumColumnInput, this.elements.matchValueInput].forEach(el => {
+                if (el) el.addEventListener('input', () => this.validateInputs());
+            });
         },
 
         initComponents() {
@@ -110,9 +97,10 @@
             this.updateUIState();
         },
 
+        // 核心修复：仅校验3个必填项，选填项不做非空校验
         validateInputs() {
             let isValid = true;
-
+            // 必填项：根目录、匹配列、保留列
             if (this.elements.basePathInput && !this.elements.basePathInput.value.trim()) {
                 this.markInvalid(this.elements.basePathInput, '请输入Excel文件根目录');
                 isValid = false;
@@ -134,22 +122,18 @@
                 this.markValid(this.elements.keepColumnsInput);
             }
 
-            if (this.elements.sumColumnInput && !this.elements.sumColumnInput.value.trim()) {
-                this.markInvalid(this.elements.sumColumnInput, '请输入求和列');
-                isValid = false;
-            } else if (this.elements.sumColumnInput) {
-                this.markValid(this.elements.sumColumnInput);
-            }
+            // 选填项：自动清除错误标记，无需非空校验
+            [this.elements.sumColumnInput, this.elements.matchValueInput].forEach(el => {
+                if (el) this.markValid(el);
+            });
 
             return isValid;
         },
 
         markInvalid(element, message) {
             if (!element) return;
-
             element.classList.add('is-invalid');
             element.classList.remove('is-valid');
-
             let feedback = element.nextElementSibling;
             if (!feedback?.classList.contains('invalid-feedback')) {
                 feedback = document.createElement('div');
@@ -161,10 +145,8 @@
 
         markValid(element) {
             if (!element) return;
-
             element.classList.remove('is-invalid');
             element.classList.add('is-valid');
-
             const feedback = element.nextElementSibling;
             if (feedback?.classList.contains('invalid-feedback')) {
                 feedback.remove();
@@ -173,32 +155,26 @@
 
         async handleProcess(e) {
             e.preventDefault();
-
-
-            if (this.data.processing) {
-
-                return;
-            }
-
+            if (this.data.processing) return;
             if (!this.validateInputs()) {
-                this.showError('请填写所有必填项');
+                this.showError('请填写所有必填项（根目录、匹配列、保留列）');
                 return;
             }
 
             this.setProcessing(true);
-
             try {
                 const requestData = this.getRequestData();
-
                 this.showProcessing('正在处理Excel文件，请稍候...');
+                // 简化：合并API请求与响应解析，直接返回后端JSON数据
+                const responseData = await this.callProcessAPI(requestData);
 
-                const response = await this.callProcessAPI(requestData);
-                const responseData = await this.handleProcessResponse(response);
-
-                if (responseData.code === 0) {
-                    await this.handleBase64FileDownload(responseData.data.base64_content);
+                if (responseData.code === 0 && responseData.success) {
+                    // 适配新字段：base64_data 替代原 base64_content
+                    await this.handleBase64FileDownload(responseData.data.base64_data);
+                    // 适配新后端字段更新4个统计卡片
                     this.updateDataCards(responseData.data);
-                    this.showSuccess('分组汇总已完成并自动下载Excel文件');
+                    // 展示后端返回的原生成功提示，无额外明细
+                    this.showSuccess(`${responseData.msg}，已自动下载Excel文件`);
                 } else {
                     this.showError(responseData.msg || '分组汇总失败，请检查后再进行操作');
                 }
@@ -213,7 +189,6 @@
         getRequestData() {
             const keepColumnsStr = this.elements.keepColumnsInput ? this.elements.keepColumnsInput.value.trim() : '';
             const keepColumns = keepColumnsStr.split(',').map(col => col.trim()).filter(col => col);
-
             return {
                 base_path: this.elements.basePathInput ? this.elements.basePathInput.value.trim() : '',
                 match_column: this.elements.matchColumnInput ? this.elements.matchColumnInput.value.trim() : '',
@@ -223,9 +198,9 @@
             };
         },
 
+        // 核心简化：合并原callProcessAPI + handleProcessResponse，直接解析后端JSON
         async callProcessAPI(requestData) {
             this.showButtonLoading(this.elements.processBtn, '正在处理...');
-
             try {
                 const response = await fetch(this.config.api.process, {
                     method: 'POST',
@@ -233,17 +208,11 @@
                     body: JSON.stringify(requestData)
                 });
                 if (!response.ok) {
-                    let errorMsg = `请求失败 (${response.status})`;
-                    try {
-                        const errorData = await response.json();
-                        errorMsg = errorData.msg || errorMsg;
-                    } catch (e) {
-                        // 忽略JSON解析错误
-                    }
+                    const errorMsg = `请求失败 (${response.status})`;
                     throw new Error(errorMsg);
                 }
-
-                return response;
+                // 直接返回解析后的JSON响应，无需单独的处理方法
+                return await response.json();
             } catch (error) {
                 console.error('API请求错误:', error);
                 if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
@@ -255,79 +224,57 @@
             }
         },
 
-        async handleProcessResponse(response) {
-            const contentType = response.headers.get('content-type') || '';
-
-            if (contentType.includes('application/json')) {
-                const responseData = await response.json();
-                return responseData;
-            } else {
-                throw new Error('未知的响应类型');
-            }
-        },
-
+        // 适配新字段：接收base64_data 替代原 base64_content
         async handleBase64FileDownload(base64Content) {
             if (!base64Content) {
-                throw new Error('文件内容为空');
+                throw new Error('文件内容为空，无法下载');
             }
-
             try {
                 const cleanBase64 = base64Content.replace(/^data:[^;]+;base64,/, '');
-
                 if (!/^[A-Za-z0-9+/=]+$/.test(cleanBase64)) {
                     throw new Error('Base64内容格式无效');
                 }
-
                 const binaryString = atob(cleanBase64);
                 const bytes = new Uint8Array(binaryString.length);
-
                 for (let i = 0; i < binaryString.length; i++) {
                     bytes[i] = binaryString.charCodeAt(i);
                 }
-
                 const blob = new Blob([bytes], {
                     type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
                 });
-
                 const url = window.URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
                 a.download = `${this.getCurrentMonthDayString()}分组汇总表.xlsx`;
                 document.body.appendChild(a);
                 a.click();
-
                 setTimeout(() => {
                     document.body.removeChild(a);
                     window.URL.revokeObjectURL(url);
                 }, 100);
-
             } catch (error) {
                 console.error('文件下载失败:', error);
                 throw new Error(`文件下载失败: ${error.message}`);
             }
         },
 
+        // 核心适配：完全按新后端data字段更新4个统计卡片，无多余逻辑
         updateDataCards(data) {
-            // 处理行数
+            // 处理行数 → 新字段 total_rows
             if (this.elements.dataRow) {
-                this.elements.dataRow.textContent = data.total_count || 0;
+                this.elements.dataRow.textContent = data.total_rows || 0;
             }
-
-            // 处理文件数量
+            // 处理文件数量 → 新字段 processed（替代原xlsx_count+xls_count）
             if (this.elements.dataFile) {
-                const totalFiles = (data.xlsx_count || 0) + (data.xls_count || 0);
-                this.elements.dataFile.textContent = totalFiles;
+                this.elements.dataFile.textContent = data.processed || 0;
             }
-
-            // 跳过文件数量
+            // 跳过文件数量 → 字段保留 skipped
             if (this.elements.dataSkip) {
                 this.elements.dataSkip.textContent = data.skipped || 0;
             }
-
-            // 求和汇总
+            // 分组数量 → 新字段 group_count（替代原total_all_num）
             if (this.elements.dataSum) {
-                const sumValue = data.total_all_num || 0;
-                this.elements.dataSum.textContent = sumValue.toLocaleString('zh-CN');
+                this.elements.dataSum.textContent = (data.group_count || 0).toLocaleString('zh-CN');
             }
         },
 
@@ -339,9 +286,10 @@
             }
         },
 
+        // 优化：支持换行，适配后端多信息提示
         showSuccess(message = '操作成功') {
             if (this.elements.responseContent) {
-                this.elements.responseContent.textContent = message;
+                this.elements.responseContent.innerHTML = message.replace(/\n/g, '<br>');
                 this.elements.responseContent.classList.remove('loading', 'error');
                 this.elements.responseContent.classList.add('success');
             }
@@ -357,7 +305,6 @@
 
         setProcessing(isProcessing) {
             this.data.processing = isProcessing;
-
             if (this.elements.processBtn) {
                 this.elements.processBtn.disabled = isProcessing;
             }
@@ -369,7 +316,6 @@
 
         showButtonLoading(button, loadingText) {
             if (!button) return;
-
             const originalText = button.innerHTML;
             button.setAttribute('data-original-text', originalText);
             button.innerHTML = `<i class="fas fa-spinner fa-spin"></i> ${loadingText || '处理中...'}`;
@@ -378,7 +324,6 @@
 
         hideButtonLoading(button) {
             if (!button) return;
-
             const originalText = button.getAttribute('data-original-text');
             if (originalText) {
                 button.innerHTML = originalText;
@@ -387,21 +332,21 @@
             button.disabled = false;
         },
 
+        // 适配新字段重置：按新后端返回的字段重置数据卡片为0
         reset() {
             if (this.elements.basePathInput) this.elements.basePathInput.value = 'E:/excel_files';
             if (this.elements.matchColumnInput) this.elements.matchColumnInput.value = 'A';
             if (this.elements.matchValueInput) this.elements.matchValueInput.value = '';
             if (this.elements.keepColumnsInput) this.elements.keepColumnsInput.value = 'B,C';
-            if (this.elements.sumColumnInput) this.elements.sumColumnInput.value = 'D';
+            if (this.elements.sumColumnInput) this.elements.sumColumnInput.value = ''; // 选填项重置为空，符合业务逻辑
 
             this.initResponseContainer();
-
+            // 按新字段重置4个统计卡片
             this.updateDataCards({
-                total_count: 0,
-                xlsx_count: 0,
-                xls_count: 0,
+                total_rows: 0,
+                processed: 0,
                 skipped: 0,
-                total_all_num: 0
+                group_count: 0
             });
         },
 
@@ -409,7 +354,6 @@
             if (this.elements.processBtn) {
                 this.elements.processBtn.replaceWith(this.elements.processBtn.cloneNode(true));
             }
-
             this.data.initialized = false;
         }
     };

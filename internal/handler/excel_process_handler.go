@@ -1,9 +1,11 @@
 package handler
 
 import (
+	"fmt"
 	"go-gin/internal/service"
 	"go-gin/pkg/logger"
 	"go-gin/pkg/response"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -20,64 +22,57 @@ func NewExcelHandler() *ExcelHandler {
 	}
 }
 
+// ProcessExcel 处理Excel文件请求
 func (h *ExcelHandler) ProcessExcel(c *gin.Context) {
-	// 1. 只绑定JSON格式（和前端保持一致，避免格式冲突）
+	// 1. 参数绑定
 	var req service.ExcelProcessRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		logger.Errorf("JSON参数绑定失败：%v，原始请求体：%s", err, c.Request.Body)
-		response.BadRequest(c, "参数绑定失败，请检查请求格式是否正确")
+		logger.Errorf("参数绑定失败: %v", err)
+		response.BadRequest(c, "请求参数格式错误")
 		return
 	}
 
-	// 2. 打印接收到的参数（排查空值问题）
-	logger.Infof("接收到Excel处理请求：base_path=%s, match_column=%s, match_value=%s, keep_columns=%v, sum_column=%s",
-		req.BasePath, req.MatchColumn, req.MatchValue, req.KeepColumns, req.SumColumn)
-
-	// 3. 核心参数校验
+	// 2. 参数校验
 	if req.BasePath == "" {
-		logger.Error("Excel处理失败：基础路径为空")
 		response.BadRequest(c, "基础路径不能为空")
 		return
 	}
 	if req.MatchColumn == "" {
-		logger.Error("Excel处理失败：匹配列为空")
 		response.BadRequest(c, "匹配列不能为空")
 		return
 	}
 	if len(req.KeepColumns) == 0 {
-		logger.Error("Excel处理失败：保留列为空")
-		response.BadRequest(c, "保留列不能为空（数组格式，如[\"A\",\"B\"]）")
-		return
-	}
-	if req.SumColumn == "" {
-		logger.Error("Excel处理失败：求和列为空")
-		response.BadRequest(c, "求和列不能为空")
+		response.BadRequest(c, "至少需要指定一个保留列")
 		return
 	}
 
-	// 4. 调用Service处理
+	// 3. 设置默认输出文件名
+	if req.OutputFile == "" {
+		req.OutputFile = generateDefaultFilename()
+	}
+
+	// 4. 调用服务层处理
 	resp, err := h.excelService.ProcessExcel(req)
 	if err != nil {
-		logger.Errorf("处理Excel失败：%v", err)
-
-		// 返回统一的错误信息，不包含详细的技术细节
-		response.BadRequest(c, "操作失败，请检查数据后重新进行操作")
+		logger.Errorf("Excel处理失败: %v", err)
+		response.ServerError(c, "Excel处理失败，请稍后重试")
 		return
 	}
-	response.SuccessWithMessage(c, "文件分组汇总完成", gin.H{
-		"total_count":    resp.TotalCount,    // 总处理行数
-		"grouped_data":   resp.GroupedData,   // 分组数据
-		"message":        resp.Message,       // 处理消息
-		"total_all_num":  resp.TotalAllNum,   // 总数量
-		"total_all_amt":  resp.TotalAllAmt,   // 求和汇总
-		"processed":      resp.Processed,     // 处理文件数
-		"skipped":        resp.Skipped,       // 跳过文件数
-		"xlsx_count":     resp.XlsxCount,     // 处理的xlsx文件数
-		"xls_count":      resp.XlsCount,      // 处理的xls文件数
-		"base64_content": resp.Base64Content, // Base64编码的Excel文件内容
+	msg := resp.Message
+	// 5. 返回成功响应
+	response.SuccessWithMessage(c, msg, gin.H{
+		"total_rows":     resp.TotalRows,
+		"group_count":    resp.GroupCount,
+		"groups":         resp.Groups,
+		"group_averages": resp.GroupAverages,
+		"base64_data":    resp.Base64Data,
+		"processed":      resp.Processed,
+		"skipped":        resp.Skipped,
+		"message":        resp.Message,
 	})
+}
 
-	// 9. 日志记录
-	logger.Infof("Excel处理完成：处理文件，总行数=%d，处理文件数=%d，跳过文件数=%d，分组数=%d",
-		resp.TotalCount, resp.Processed, resp.Skipped, len(resp.GroupedData))
+// generateDefaultFilename 生成默认文件名
+func generateDefaultFilename() string {
+	return fmt.Sprintf("excel_summary_%s.xlsx", time.Now().Format("20060102_150405"))
 }
