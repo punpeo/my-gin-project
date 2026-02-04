@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/base64"
 	"fmt"
+	"go-gin/pkg/logger"
 	"os"
 	"path/filepath"
 	"sort"
@@ -50,6 +51,20 @@ func NewExcelService() *excelService {
 	return &excelService{}
 }
 
+// columnToIndex 将Excel列字母转换为索引（A→0，B→1，AA→26）
+func columnToIndex(col string) int {
+	col = strings.ToUpper(col)
+	index := 0
+	for _, c := range col {
+		if !unicode.IsLetter(c) {
+			return -1
+		}
+		index = index*26 + int(c-'A')
+	}
+	return index
+}
+
+// ProcessExcel 处理Excel文件的主要方法
 func (s *excelService) ProcessExcel(req ExcelProcessRequest) (*ExcelProcessResponse, error) {
 	// 1. 初始化输出文件和数据结构
 	outputFile := excelize.NewFile()
@@ -101,11 +116,13 @@ func (s *excelService) ProcessExcel(req ExcelProcessRequest) (*ExcelProcessRespo
 
 		rows, err := s.readExcelFile(path)
 		if err != nil {
+			logger.Debugf("跳过文件%s: %v", filepath.Base(path), err)
 			skipped++
 			return nil
 		}
 
 		if len(rows) == 0 {
+			logger.Debugf("文件%s读取到0行数据，跳过", filepath.Base(path))
 			skipped++
 			return nil
 		}
@@ -120,7 +137,7 @@ func (s *excelService) ProcessExcel(req ExcelProcessRequest) (*ExcelProcessRespo
 
 			// 获取分组列值
 			matchColIdx := columnToIndex(req.MatchColumn)
-			if matchColIdx >= len(row) {
+			if matchColIdx < 0 || matchColIdx >= len(row) {
 				continue
 			}
 			matchValue := strings.TrimSpace(row[matchColIdx])
@@ -139,7 +156,7 @@ func (s *excelService) ProcessExcel(req ExcelProcessRequest) (*ExcelProcessRespo
 			var keepValues []string
 			for _, col := range req.KeepColumns {
 				colIdx := columnToIndex(col)
-				if colIdx < len(row) {
+				if colIdx >= 0 && colIdx < len(row) {
 					keepValues = append(keepValues, strings.TrimSpace(row[colIdx]))
 				} else {
 					keepValues = append(keepValues, "")
@@ -150,11 +167,14 @@ func (s *excelService) ProcessExcel(req ExcelProcessRequest) (*ExcelProcessRespo
 			var averageValue float64
 			if req.AverageColumn != "" {
 				avgColIdx := columnToIndex(req.AverageColumn)
-				if avgColIdx < len(row) {
-					if val, err := strconv.ParseFloat(strings.TrimSpace(row[avgColIdx]), 64); err == nil {
-						averageValue = val
-						groupSums[matchValue] += val
-						groupCounts[matchValue]++
+				if avgColIdx >= 0 && avgColIdx < len(row) {
+					valStr := strings.TrimSpace(row[avgColIdx])
+					if valStr != "" {
+						if val, err := strconv.ParseFloat(valStr, 64); err == nil {
+							averageValue = val
+							groupSums[matchValue] += val
+							groupCounts[matchValue]++
+						}
 					}
 				}
 			}
@@ -172,6 +192,10 @@ func (s *excelService) ProcessExcel(req ExcelProcessRequest) (*ExcelProcessRespo
 
 	if err != nil {
 		return nil, fmt.Errorf("文件处理错误: %v", err)
+	}
+
+	if len(groupData) == 0 {
+		return nil, fmt.Errorf("没有找到有效数据")
 	}
 
 	// 4. 按分组值排序并写入结果文件
@@ -227,9 +251,18 @@ func (s *excelService) ProcessExcel(req ExcelProcessRequest) (*ExcelProcessRespo
 	}
 	base64Data := base64.StdEncoding.EncodeToString(buf.Bytes())
 
+	// 计算总行数（减去空行）
+	emptyLines := len(groupValues) - 1 // 除了最后一个分组，每个分组后面有一个空行
+	if len(groupValues) > 0 {
+		emptyLines = len(groupValues) - 1
+	} else {
+		emptyLines = 0
+	}
+	totalRows := rowIndex - 2 - emptyLines
+
 	// 7. 构建响应
 	return &ExcelProcessResponse{
-		TotalRows:     rowIndex - 2 - len(groupValues), // 减去空行数
+		TotalRows:     totalRows,
 		GroupCount:    len(groupStats),
 		Groups:        groupStats,
 		GroupAverages: groupAverages,
@@ -239,11 +272,11 @@ func (s *excelService) ProcessExcel(req ExcelProcessRequest) (*ExcelProcessRespo
 		XlsxCount:     xlsxCount,
 		XlsCount:      xlsCount,
 		Message: fmt.Sprintf("成功处理 %d 个文件(%d个.xlsx, %d个.xls), 跳过 %d 个文件, 共 %d 行数据, 分为 %d 组",
-			processed, xlsxCount, xlsCount, skipped, rowIndex-2-len(groupValues), len(groupStats)),
+			processed, xlsxCount, xlsCount, skipped, totalRows, len(groupStats)),
 	}, nil
 }
 
-// 其他方法保持不变...
+// readExcelFile 读取Excel文件（支持XLS和XLSX）
 func (s *excelService) readExcelFile(filePath string) ([][]string, error) {
 	ext := strings.ToLower(filepath.Ext(filePath))
 	switch ext {
@@ -256,6 +289,7 @@ func (s *excelService) readExcelFile(filePath string) ([][]string, error) {
 	}
 }
 
+// readXLSXFile 读取XLSX文件
 func (s *excelService) readXLSXFile(filePath string) ([][]string, error) {
 	f, err := excelize.OpenFile(filePath)
 	if err != nil {
@@ -270,37 +304,125 @@ func (s *excelService) readXLSXFile(filePath string) ([][]string, error) {
 	return f.GetRows(sheetName)
 }
 
+// safeReadXLSFile 安全读取XLS文件（修复panic问题）
 func (s *excelService) safeReadXLSFile(filePath string) ([][]string, error) {
+	// 外层recover保护整个函数
 	defer func() {
 		if r := recover(); r != nil {
-			fmt.Printf("读取XLS文件时发生panic: %v\n", r)
+			logger.Debugf("读取XLS文件%s时发生panic，已恢复: %v", filepath.Base(filePath), r)
 		}
 	}()
 
-	file, err := xls.Open(filePath, "utf-8")
+	// 检查文件是否存在
+	fileInfo, err := os.Stat(filePath)
+	if err != nil {
+		return nil, fmt.Errorf("文件不存在或无权限访问")
+	}
+	if fileInfo.Size() == 0 {
+		return nil, fmt.Errorf("文件为空")
+	}
+
+	// 尝试打开文件
+	var file *xls.WorkBook
+	func() {
+		defer func() {
+			if r := recover(); r != nil {
+				logger.Debugf("打开XLS文件%s时发生panic: %v", filepath.Base(filePath), r)
+			}
+		}()
+		file, err = xls.Open(filePath, "utf-8")
+	}()
+
 	if err != nil {
 		return nil, fmt.Errorf("打开XLS文件失败: %v", err)
 	}
+	if file == nil {
+		return nil, fmt.Errorf("无法读取XLS文件内容")
+	}
 
-	sheet := file.GetSheet(0)
+	// 获取第一个工作表
+	var sheet *xls.WorkSheet
+	func() {
+		defer func() {
+			if r := recover(); r != nil {
+				logger.Debugf("获取XLS工作表时发生panic: %v", r)
+			}
+		}()
+		sheet = file.GetSheet(0)
+	}()
+
 	if sheet == nil {
 		return nil, fmt.Errorf("XLS文件中未找到第一个工作表")
 	}
 
 	var rows [][]string
-	maxRow := int(sheet.MaxRow)
-	for i := 0; i <= maxRow; i++ {
-		row := sheet.Row(i)
+	const maxRows = 100000
+	const maxEmptyRows = 50
+	emptyRowCount := 0
+
+	// 安全遍历行
+	for i := 0; i < maxRows; i++ {
+		// 检查是否应该提前结束
+		if emptyRowCount >= maxEmptyRows {
+			logger.Debugf("连续读取到%d个空行，停止读取文件%s", maxEmptyRows, filepath.Base(filePath))
+			break
+		}
+
+		// 安全获取行
+		var row *xls.Row
+		func() {
+			defer func() {
+				if r := recover(); r != nil {
+					logger.Debugf("获取XLS行%d时发生panic: %v", i, r)
+				}
+			}()
+			row = sheet.Row(i)
+		}()
+
+		// 如果获取行失败，跳过此行
 		if row == nil {
+			emptyRowCount++
+			continue
+		}
+		emptyRowCount = 0
+
+		// 安全获取列数
+		lastCol := 0
+		func() {
+			defer func() {
+				if r := recover(); r != nil {
+					logger.Debugf("获取XLS行%d的列数时发生panic: %v", i, r)
+				}
+			}()
+			lastCol = row.LastCol()
+		}()
+
+		if lastCol <= 0 {
 			continue
 		}
 
+		// 读取列数据
 		var cols []string
-		lastCol := int(row.LastCol())
-		for j := 0; j <= lastCol; j++ {
-			cols = append(cols, strings.TrimSpace(row.Col(j)))
+		hasData := false
+		for j := 0; j < lastCol; j++ {
+			var colValue string
+			func() {
+				defer func() {
+					if r := recover(); r != nil {
+						logger.Debugf("读取XLS单元格(%d,%d)时发生panic: %v", i, j, r)
+					}
+				}()
+				colValue = row.Col(j)
+			}()
+
+			colValue = strings.TrimSpace(colValue)
+			cols = append(cols, colValue)
+			if colValue != "" {
+				hasData = true
+			}
 		}
-		if len(cols) > 0 {
+
+		if hasData && len(cols) > 0 {
 			rows = append(rows, cols)
 		}
 	}
@@ -309,17 +431,6 @@ func (s *excelService) safeReadXLSFile(filePath string) ([][]string, error) {
 		return nil, fmt.Errorf("XLS文件中未找到有效数据")
 	}
 
+	logger.Debugf("安全读取XLS文件%s，共%d行有效数据", filepath.Base(filePath), len(rows))
 	return rows, nil
-}
-
-func columnToIndex(col string) int {
-	col = strings.ToUpper(col)
-	index := 0
-	for _, c := range col {
-		if !unicode.IsLetter(c) {
-			return -1
-		}
-		index = index*26 + int(c-'A')
-	}
-	return index
 }
