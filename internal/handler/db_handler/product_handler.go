@@ -132,7 +132,7 @@ func (h *productHandler) UpdateProduct(c *gin.Context) {
 // ImportByExcel Excel文件批量导入商品
 func (h *productHandler) ImportByExcel(c *gin.Context) {
 	var req service.ExcelImportReq
-	if err := c.ShouldBind(&req); err != nil {
+	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Fail(c, http.StatusBadRequest, "参数格式错误："+err.Error())
 		return
 	}
@@ -147,22 +147,23 @@ func (h *productHandler) ImportByExcel(c *gin.Context) {
 // CreateOne 单条新增商品
 func (h *productHandler) CreateOne(c *gin.Context) {
 	var req service.ShopGoodsReq
-	if err := c.ShouldBind(&req); err != nil {
+	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Fail(c, http.StatusBadRequest, "参数格式错误："+err.Error())
 		return
 	}
 
-	if err := service.ProductService.CreateOne(&req); err != nil {
+	if id, err := service.ProductService.AddProduct(&req); err != nil {
 		response.Fail(c, http.StatusInternalServerError, err.Error())
 		return
+	} else {
+		response.SuccessWithMessage(c, "单条商品新增成功", gin.H{"id": id})
 	}
-	response.SuccessWithMessage(c, "单条商品新增成功", nil)
 }
 
 // CreateBatch 多条批量新增商品
 func (h *productHandler) CreateBatch(c *gin.Context) {
 	var req service.BatchShopGoodsReq
-	if err := c.ShouldBind(&req); err != nil {
+	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Fail(c, http.StatusBadRequest, "参数格式错误："+err.Error())
 		return
 	}

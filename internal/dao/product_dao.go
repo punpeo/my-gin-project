@@ -55,6 +55,21 @@ func (d *productDao) ListAll() ([]model.ProductInfo, error) {
 }
 
 // BatchCreate 批量插入商品数据（首次导入数据用）
+func (d *productDao) Create(product *model.ProductInfo) (uint, error) {
+	// 获取数据库连接
+	db := db.GetDB()
+	// 单条插入：传入指针，ORM会自动将自增ID赋值给product.ID
+	result := db.Create(product)
+	if result.Error != nil {
+		logger.Errorf("单条新增商品数据失败：%v", result.Error)
+		return 0, result.Error
+	}
+	// 插入成功，返回自增ID（product.ID 已被ORM赋值）
+	logger.Infof("单条新增商品成功，商品ID：%d", product.ID)
+	return product.ID, nil
+}
+
+// BatchCreate 批量插入商品数据（首次导入数据用）
 func (d *productDao) BatchCreate(products []model.ProductInfo) error {
 	db := db.GetDB()
 	result := db.Create(&products)

@@ -279,3 +279,22 @@ func (s *productService) batchProcessProducts(products []model.ProductInfo) erro
 	}
 	return nil
 }
+func (s *productService) AddProduct(req *ShopGoodsReq) (uint, error) {
+	// 构造ProductInfo结构体（非指针，后续传地址）
+	product := &model.ProductInfo{
+		Shop:         req.Shop,
+		ProductName:  req.ProductName,
+		BarCode:      req.BarCode,
+		BusinessCode: req.BusinessCode,
+		MerchantCode: req.MerchantCode,
+		// 其他字段赋值...
+	}
+	// 调用DAO层单条新增方法，获取自增ID
+	productID, err := dao.ProductDao.Create(product)
+	if err != nil {
+		return 0, fmt.Errorf("新增商品失败：%v", err)
+	}
+	// 插入后，product.ID 也已被赋值，与返回的productID一致
+	logger.Infof("商品新增成功，ID：%d（双重验证）", product.ID)
+	return productID, nil
+}

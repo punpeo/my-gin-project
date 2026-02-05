@@ -2,6 +2,7 @@
  * 商品查询模块 - 最终完整版（行操作UI重设计）
  * 核心功能：1.表格行编辑/复制按钮UI全新设计（整洁美观、清晰区分）2.输入框右侧清除叉号 3.表格复制编码自动解析
  * 4.双复制按钮（顶部批量+行内单行）5.仅查询loading提示 6.防表单冲突 7.完整业务功能（增删改查/导入/分页）
+ * 8.列表数据按照用户输入的表单数据顺序排序
  */
 (function () {
     if (window.ProductQueryModule && window.ProductQueryModule.initialized) {
@@ -293,7 +294,18 @@
                 this._clearMessage();
                 if (res.code === 0) {
                     this.state.total = res.data.total;
-                    this._renderTable(res.data.list);
+                    
+                    // 新增排序逻辑：按照用户输入顺序排序
+                    let sortedList = res.data.list;
+                    if (barCodes.length > 0) {
+                        // 按条码输入顺序排序
+                        sortedList = this._sortListByInputOrder(sortedList, barCodes, 'bar_code');
+                    } else if (businessCodes.length > 0) {
+                        // 按事业部编码输入顺序排序
+                        sortedList = this._sortListByInputOrder(sortedList, businessCodes, 'business_code');
+                    }
+                    
+                    this._renderTable(sortedList);
                     this._updatePaginationUI();
                 } else {
                     console.warn('查询失败：', res.msg);
@@ -304,6 +316,28 @@
             } finally {
                 this._updateBatchCopyBtnStatus();
             }
+        },
+        
+        // 新增排序方法：按照用户输入顺序排序
+        _sortListByInputOrder: function(list, inputOrder, field) {
+            // 创建输入值的索引映射
+            const indexMap = {};
+            inputOrder.forEach((value, index) => {
+                indexMap[value] = index;
+            });
+            
+            // 创建列表项的副本进行排序
+            return list.slice().sort((a, b) => {
+                const aValue = a[field];
+                const bValue = b[field];
+                
+                // 获取值在输入顺序中的索引
+                const aIndex = indexMap.hasOwnProperty(aValue) ? indexMap[aValue] : Infinity;
+                const bIndex = indexMap.hasOwnProperty(bValue) ? indexMap[bValue] : Infinity;
+                
+                // 比较索引值
+                return aIndex - bIndex;
+            });
         },
 
         _validateQueryForm: function () {
