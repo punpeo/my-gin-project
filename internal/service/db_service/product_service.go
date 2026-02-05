@@ -98,18 +98,29 @@ func (s *productService) GetByID(id uint) (*model.ProductInfo, error) {
 }
 
 // UpdateProduct 修改商品信息
-func (s *productService) UpdateProduct(product *ShopGoods) error {
+func (s *productService) UpdateProduct(product *ShopGoods) (*model.ProductInfo, error) {
+	// 1. 入参非空校验
 	if product == nil {
-		return fmt.Errorf("商品信息不能为空")
+		return nil, fmt.Errorf("商品信息不能为空")
 	}
-	return dao.ProductDao.UpdateProduct(&model.ProductInfo{
+	// 2. 业务层DTO(ShopGoods) 转换为 数据层Model(ProductInfo)
+	productModel := &model.ProductInfo{
 		ID:           product.ID,
 		Shop:         product.Shop,
 		ProductName:  product.ProductName,
 		BarCode:      product.BarCode,
 		BusinessCode: product.BusinessCode,
 		MerchantCode: product.MerchantCode,
-	})
+	}
+	// 3. 调用Dao层方法，接收「更新后结构体+错误」
+	updatedModel, err := dao.ProductDao.UpdateProduct(productModel)
+	if err != nil {
+		// 可在此添加Service层专属日志（如业务层面的错误记录）
+		// logger.Errorf("Service层修改商品失败，ID：%d，错误：%v", product.ID, err)
+		return nil, err
+	}
+	// 4. 成功则返回Dao层查询到的「更新后完整结构体」
+	return updatedModel, nil
 }
 
 // -------------------------- 对外暴露的3个核心业务方法 --------------------------

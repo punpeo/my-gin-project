@@ -115,18 +115,23 @@ func (h *productHandler) GetByID(c *gin.Context) {
 
 // edit 修改商品信息
 func (h *productHandler) UpdateProduct(c *gin.Context) {
-
+	// 1. 绑定前端JSON参数到业务DTO(ShopGoods)
 	var req service.ShopGoods
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Fail(c, http.StatusBadRequest, "参数格式错误")
 		return
 	}
-	err := service.ProductService.UpdateProduct(&req)
+
+	// 2. 调用Service层方法：接收「更新后结构体+错误」（核心调整）
+	updatedProduct, err := service.ProductService.UpdateProduct(&req)
 	if err != nil {
+		// 3. 错误处理：透传错误信息，返回失败响应
 		response.Fail(c, http.StatusInternalServerError, "修改失败："+err.Error())
 		return
 	}
-	response.Success(c, "修改成功")
+
+	// 4. 成功处理：将更新后结构体作为响应数据返回（核心调整）
+	response.SuccessWithMessage(c, "修改成功", gin.H{"id": updatedProduct.ID})
 }
 
 // ImportByExcel Excel文件批量导入商品
