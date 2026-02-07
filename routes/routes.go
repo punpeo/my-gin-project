@@ -13,12 +13,18 @@ import (
 func SetupRouter() *gin.Engine {
 	r := gin.New()
 
-	r.SetTrustedProxies([]string{"127.0.0.1"})
+	// 关键调整1：取消TrustedProxies的本地限制（适配Cloudflare Tunnel代理）
+	// 原配置只信任127.0.0.1，会导致Cloudflare的请求被判定为非信任来源
+	r.SetTrustedProxies(nil)
 
 	r.Use(middleware.LoggerMiddleware())
 	r.Use(gin.Recovery())
 
+	// 关键调整2：增强静态资源路由（允许访问static下的所有文件，包括子目录）
+	// 原配置仅r.Static("/static", "./static")，补充StaticFS确保子目录可访问
 	r.Static("/static", "./static")
+	r.StaticFS("/static", gin.Dir("./static", true)) // 允许列出static目录下的文件（调试用）
+
 	r.GET("/", func(c *gin.Context) {
 		c.File("./static/index.html")
 	})
@@ -31,7 +37,7 @@ func SetupRouter() *gin.Engine {
 		})
 	})
 
-	// 业务主路由组 v1
+	// 业务主路由组 v1（无需修改）
 	v1 := r.Group("/api/v1")
 	{
 		// 基础通用接口子分组
@@ -79,24 +85,35 @@ func SetupRouter() *gin.Engine {
 		}
 	}
 
-	// 商品数据库接口路由组 v2（原有结构保留，内部无需拆分）
+	// 商品数据库接口路由组 v2（无需修改）
 	v2 := r.Group("/api/v2")
 	{
 		v2.GET("/barcode/:barcode", db_handler.ProductHandler.GetByBarCode)
 		v2.GET("/product/shop/:shop", db_handler.ProductHandler.ListByShop)
 		v2.GET("/product/all", db_handler.ProductHandler.ListAll)
 		v2.POST("/product/all-with-page", db_handler.ProductHandler.ListAllWithPage)
-		//通过ID精准查询商品接口
 		v2.POST("/product/id", db_handler.ProductHandler.GetByID)
-		//edit修改商品接口
 		v2.POST("/product/edit", db_handler.ProductHandler.UpdateProduct)
-		v2.POST("/product/import-excel", db_handler.ProductHandler.ImportByExcel) // Excel导入
-		v2.POST("/product/create", db_handler.ProductHandler.CreateOne)           // 单条新增
-		v2.POST("/product/create-batch", db_handler.ProductHandler.CreateBatch)   // 多条新增
-
+		v2.POST("/product/import-excel", db_handler.ProductHandler.ImportByExcel)
+		v2.POST("/product/create", db_handler.ProductHandler.CreateOne)
+		v2.POST("/product/create-batch", db_handler.ProductHandler.CreateBatch)
 	}
 
-	// 404统一处理
+	// 可选：添加静态HTML文件的兜底路由（防止模块页面访问异常）
+	// 若前端仍有模块页面404，可启用此路由
+	/*
+		r.GET("/*.html", func(c *gin.Context) {
+			filePath := c.Param("0") + ".html"
+			fullPath := fmt.Sprintf("./static/%s", filePath)
+			if _, err := os.Stat(fullPath); os.IsNotExist(err) {
+				response.Fail(c, 404, "页面不存在")
+				return
+			}
+			c.File(fullPath)
+		})
+	*/
+
+	// 404统一处理（无需修改）
 	r.NoRoute(func(c *gin.Context) {
 		response.Fail(c, 404, "接口不存在")
 	})

@@ -6,11 +6,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>智能业务处理中心</title>
 
-    <!-- 样式文件 -->
+    <!-- 样式文件：保留CDN资源，本地资源添加/static前缀 -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="./css/style.css">
-    <link rel="stylesheet" href="./css/style-modules.css">
+    <!-- 核心修正：./css → /static/css -->
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="/static/css/style-modules.css">
 
     <style>
         /* 加载状态样式 */
@@ -212,8 +213,6 @@
                         </div>
                     </a>
                 </li>
-
-
             </ul>
 
             <div class="sidebar-footer">
@@ -236,10 +235,9 @@
             <div class="content-header">
                 <h1>智能业务处理中心</h1>
                 <p>一体化数据管理与智能分析平台，赋能您的业务决策与流程优化</p>
-                <!-- 圆形头像 -->
+                <!-- 圆形头像：核心修正 → /static/images/ -->
                 <div class="content-avatar">
-                    <!-- 替换为你的头像图片路径 -->
-                    <img src="images/chenxia.png" alt="用户头像">
+                    <img src="/static/images/chenxia.png" alt="用户头像">
                 </div>
             </div>
 
@@ -266,9 +264,9 @@
         </main>
     </div>
 
-    <!-- JavaScript文件 -->
-    <script src="js/main.js"></script>
-    <script src="js/modules.js"></script>
+    <!-- JavaScript文件：核心修正 → /static/js/ -->
+    <script src="/static/js/main.js"></script>
+    <script src="/static/js/modules.js"></script>
 </body>
 
 </html>
