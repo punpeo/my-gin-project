@@ -22,7 +22,7 @@ func SetupRouter() *gin.Engine {
 
 	// 关键调整2：增强静态资源路由（允许访问static下的所有文件，包括子目录）
 	// 原配置仅r.Static("/static", "./static")，补充StaticFS确保子目录可访问
-	r.Static("/static", "./static")
+	//	r.Static("/static", "./static")
 	r.StaticFS("/static", gin.Dir("./static", true)) // 允许列出static目录下的文件（调试用）
 
 	r.GET("/", func(c *gin.Context) {
