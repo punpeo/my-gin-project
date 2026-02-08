@@ -1,14 +1,14 @@
 document.addEventListener('DOMContentLoaded', function() {
     // 模块映射配置
     const modulesConfig = {
-        'excel-sales': 'modules/excel-sales.html',
-        'excel-fill': 'modules/excel-fill.html', 
-        'stock': 'modules/stock.html',
-        'order-summary': 'modules/order-summary.html',
-        'shop-order': 'modules/shop-order.html',
-        'cycle-sales': 'modules/cycle-sales.html',
-        'dev-module-1': 'modules/product.html',
-        'dev-module-2': 'modules/dev-module-2.html'
+        'excel-sales': 'static/modules/excel-sales.html',
+        'excel-fill': 'static/modules/excel-fill.html', 
+        'stock': 'static/modules/stock.html',
+        'order-summary': 'static/modules/order-summary.html',
+        'shop-order': 'static/modules/shop-order.html',
+        'cycle-sales': 'static/modules/cycle-sales.html',
+        'dev-module-1': 'static/modules/product.html',
+        'dev-module-2': 'static/modules/dev-module-2.html'
     };
     
     // 获取所有导航项
