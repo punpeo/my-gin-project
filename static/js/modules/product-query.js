@@ -3,6 +3,7 @@
  * 核心功能：1.表格行编辑/复制按钮UI全新设计（整洁美观、清晰区分）2.输入框右侧清除叉号 3.表格复制编码自动解析
  * 4.双复制按钮（顶部批量+行内单行）5.仅查询loading提示 6.防表单冲突 7.完整业务功能（增删改查/导入/分页）
  * 8.列表数据按照用户输入的表单数据顺序排序
+ * 优化点：修复新增商品弹窗提交按钮未触发API的问题
  */
 (function () {
     if (window.ProductQueryModule && window.ProductQueryModule.initialized) {
@@ -77,7 +78,7 @@
                 inputAddMerchantCode: c.querySelector('#input-add-merchantCode'),
                 modalCloseAdd: c.querySelector('#modal-close-add'),
                 btnCancelAdd: c.querySelector('#btn-cancel-add'),
-                btnSubmitAdd: c.querySelector('#btn-submit-add'),
+                btnSubmitAdd: c.querySelector('#btn-submit-add'), // 提交按钮DOM缓存
                 modalImport: c.querySelector('#modal-import-excel'),
                 inputExcelFile: c.querySelector('#input-excelFile'),
                 textFileName: c.querySelector('#text-fileName'),
@@ -93,7 +94,8 @@
                 { key: 'inputBarCode', name: '条码输入框#input-barCode' },
                 { key: 'inputBusinessCode', name: '事业部编码输入框#input-businessCode' },
                 { key: 'tableBody', name: '表格主体#table-body' },
-                { key: 'btnCopyBatch', name: '批量复制按钮#btn-copy-batch' }
+                { key: 'btnCopyBatch', name: '批量复制按钮#btn-copy-batch' },
+                { key: 'btnSubmitAdd', name: '新增商品提交按钮#btn-submit-add' } // 新增校验
             ];
             const missing = [];
             coreElements.forEach(item => {
@@ -199,6 +201,9 @@
 
             el.modalCloseAdd.addEventListener('click', () => that._closeAddModal());
             el.btnCancelAdd.addEventListener('click', () => that._closeAddModal());
+            // 🔥 关键修改1：给提交按钮绑定点击事件（核心修复）
+            el.btnSubmitAdd.addEventListener('click', () => that._handleAddOrEdit());
+            // 保留form submit事件（兼容回车提交）
             el.formAdd.addEventListener('submit', function (e) {
                 e.preventDefault();
                 that._handleAddOrEdit();
@@ -483,9 +488,15 @@
             this.el.btnSubmitImport.disabled = false;
         },
 
+        // 🔥 关键修改2：增强API调用的日志和异常处理（便于调试）
         _handleAddOrEdit: async function () {
             try {
-                if (!this._validateAddEditForm()) return;
+                // 1. 表单验证
+                if (!this._validateAddEditForm()) {
+                    console.log('表单验证失败，终止提交');
+                    return;
+                }
+                // 2. 收集表单数据
                 const productData = {
                     shop: this.el.inputAddShop.value.trim(),
                     product_name: this.el.inputAddProductName.value.trim(),
@@ -493,25 +504,36 @@
                     business_code: this.el.inputAddBusinessCode.value.trim(),
                     merchant_code: this.el.inputAddMerchantCode.value.trim()
                 };
+                console.log('表单数据收集完成', productData);
+                
+                // 3. 禁用提交按钮，防止重复点击
                 this.el.btnSubmitAdd.disabled = true;
                 this._showMessage('loading', this.state.editId ? '正在修改商品...' : '正在新增商品...');
+                
+                // 4. 调用后端API
+                console.log('开始调用后端API', this.state.editId ? '编辑' : '新增');
                 const res = this.state.editId 
                     ? await this.editProduct({ id: this.state.editId, ...productData })
                     : await this.createProduct(productData);
+                console.log('API调用返回结果', res);
 
+                // 5. 处理API返回结果
                 this._clearMessage();
                 if (res.code === 0) {
                     this._showMessage('success', this.state.editId ? '修改商品成功' : '新增商品成功');
                     this._closeAddModal();
-                    this._handleQuery();
+                    this._handleQuery(); // 重新查询，刷新表格
                 } else {
                     this._showMessage('error', `${this.state.editId ? '修改失败' : '新增失败'}：${res.msg || '未知错误'}`);
                 }
             } catch (e) {
+                // 6. 捕获所有异常，便于调试
                 this._clearMessage();
-                this._showMessage('error', `${this.state.editId ? '修改商品异常' : '新增商品异常'}：${e.message}`);
-                console.error(e);
+                const errorMsg = `${this.state.editId ? '修改商品异常' : '新增商品异常'}：${e.message}`;
+                this._showMessage('error', errorMsg);
+                console.error('新增/编辑商品异常', e);
             } finally {
+                // 7. 恢复按钮状态
                 this.el.btnSubmitAdd.disabled = false;
             }
         },
@@ -562,7 +584,6 @@
             this.el.inputAddShop.focus();
         },
 
-        // 🔴 核心修改：表格行渲染 - 重设计编辑/复制按钮UI
         _renderTable: function (list) {
             const el = this.el;
             el.tableBody.innerHTML = '';
@@ -685,33 +706,79 @@
             this.el.responseContainer.innerHTML = '';
         },
 
+        // 🔥 关键修改3：增强API调用的异常捕获和日志
         // 后端接口
         createProduct: async function (data) {
-            return fetch(`${this.apiBase}/create`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(data)
-            }).then(res => res.json());
+            try {
+                console.log('调用新增商品API：', `${this.apiBase}/create`);
+                const res = await fetch(`${this.apiBase}/create`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data),
+                    credentials: 'same-origin' // 新增：携带Cookie（适配后端鉴权）
+                });
+                // 检查HTTP状态码
+                if (!res.ok) {
+                    throw new Error(`HTTP请求失败，状态码：${res.status}`);
+                }
+                const resData = await res.json();
+                return resData;
+            } catch (e) {
+                console.error('新增商品API调用失败', e);
+                throw e;
+            }
         },
         editProduct: async function (data) {
-            return fetch(`${this.apiBase}/edit`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(data)
-            }).then(res => res.json());
+            try {
+                console.log('调用编辑商品API：', `${this.apiBase}/edit`);
+                const res = await fetch(`${this.apiBase}/edit`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data),
+                    credentials: 'same-origin' // 新增：携带Cookie（适配后端鉴权）
+                });
+                if (!res.ok) {
+                    throw new Error(`HTTP请求失败，状态码：${res.status}`);
+                }
+                const resData = await res.json();
+                return resData;
+            } catch (e) {
+                console.error('编辑商品API调用失败', e);
+                throw e;
+            }
         },
         importExcel: async function (formData) {
-            return fetch(`${this.apiBase}/import-excel`, {
-                method: 'POST',
-                body: formData
-            }).then(res => res.json());
+            try {
+                const res = await fetch(`${this.apiBase}/import-excel`, {
+                    method: 'POST',
+                    body: formData,
+                    credentials: 'same-origin'
+                });
+                if (!res.ok) {
+                    throw new Error(`HTTP请求失败，状态码：${res.status}`);
+                }
+                return res.json();
+            } catch (e) {
+                console.error('导入Excel API调用失败', e);
+                throw e;
+            }
         },
         queryProduct: async function (params) {
-            return fetch(`${this.apiBase}/all-with-page`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(params)
-            }).then(res => res.json());
+            try {
+                const res = await fetch(`${this.apiBase}/all-with-page`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(params),
+                    credentials: 'same-origin'
+                });
+                if (!res.ok) {
+                    throw new Error(`HTTP请求失败，状态码：${res.status}`);
+                }
+                return res.json();
+            } catch (e) {
+                console.error('查询商品API调用失败', e);
+                throw e;
+            }
         }
     };
 
