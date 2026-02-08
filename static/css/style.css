@@ -426,18 +426,13 @@ body {
     width: 60px;
     height: 60px;
     background: linear-gradient(135deg, var(--primary), var(--primary-dark));
-    border-radius: 18px;
+    border-radius: 0; /* 同步移除圆角，改为直角 */
     display: flex;
     align-items: center;
     justify-content: center;
     color: white;
     font-size: 1.5rem;
     box-shadow: 0 6px 20px rgba(99, 102, 241, 0.3);
-}
-
-/* 单独修复面板图标圆角：同步移除，改为直角 */
-.panel-icon {
-    border-radius: 0;
 }
 
 .panel-title h3 {
@@ -649,7 +644,7 @@ select.form-control {
     width: 100%;
     padding: 10px 12px;
     border: 1px solid #ddd;
-    border-radius: 4px;
+    border-radius: var(--border-radius);
     font-size: 14px;
     box-sizing: border-box;
     transition: border-color 0.2s ease, box-shadow 0.2s ease;
@@ -665,7 +660,7 @@ select.form-control {
 .import-tips {
     padding: 12px;
     background: #f8f9fa;
-    border-radius: 4px;
+    border-radius: var(--border-radius);
     margin-bottom: 20px;
     font-size: 14px;
 }
@@ -699,7 +694,7 @@ select.form-control {
     color: #333;
     padding: 8px 16px;
     cursor: pointer;
-    border-radius: 4px;
+    border-radius: var(--border-radius);
     transition: background 0.2s ease;
 }
 
@@ -728,7 +723,7 @@ select.form-control {
 .btn {
     padding: 8px 16px;
     border: none;
-    border-radius: 4px;
+    border-radius: var(--border-radius);
     cursor: pointer;
     font-size: 14px;
     transition: background 0.2s ease;
@@ -1215,8 +1210,7 @@ select.form-control {
     display: flex;
     align-items: center;
     justify-content: center;
-    flex: 0 0 50px !important;
-    /* 固定宽度，不随内容伸缩 */
+    flex: 0 0 40px !important; /* 匹配表头40px宽度 */
     padding: 0 !important;
 }
 
@@ -1320,7 +1314,7 @@ select.form-control {
     display: flex;
     align-items: center;
     justify-content: center;
-    flex: 0 0 120px !important;
+    flex: 0 0 140px !important; /* 匹配表头140px宽度 */
     padding: 0 !important;
     gap: 8px;
 }
@@ -1344,7 +1338,7 @@ select.form-control {
 }
 
 /* ==============================================
-   数据列表 + 分页 核心样式（无圆角+适配7列布局）- 核心调整：6列→7列
+   数据列表 + 分页 核心样式（无圆角+严格指定7列布局）
    ============================================== */
 /* 数据列表容器 - 无圆角+统一样式 */
 .data-table {
@@ -1357,10 +1351,10 @@ select.form-control {
     overflow: hidden;
 }
 
-/* 列表表头 - 核心调整：Grid布局6列→7列（勾选+5数据列+操作），精准分配宽度 */
+/* 列表表头 - 核心：严格指定7列宽 40px 0.5fr 0.6fr 0.6fr 0.8fr 0.8fr 140px */
 .data-table-header {
     display: grid;
-    grid-template-columns: 50px 1fr 1.5fr 1.2fr 1.4fr 1.3fr 120px;
+    grid-template-columns: 40px 0.5fr 0.6fr 0.6fr 0.8fr 0.8fr 140px;
     padding: 18px 24px;
     background: linear-gradient(135deg, var(--primary-ultra-light), var(--gray-50));
     border-bottom: 1px solid var(--gray-200);
@@ -1394,24 +1388,22 @@ select.form-control {
 
 .data-table-body::-webkit-scrollbar-track {
     background: var(--gray-100);
-    border-radius: 0;
-    /* 滚动条轨道无圆角 */
+    border-radius: 0; /* 滚动条轨道无圆角 */
 }
 
 .data-table-body::-webkit-scrollbar-thumb {
     background: var(--primary-light);
-    border-radius: 0;
-    /* 滚动条滑块无圆角 */
+    border-radius: 0; /* 滚动条滑块无圆角 */
 }
 
 .data-table-body::-webkit-scrollbar-thumb:hover {
     background: var(--primary);
 }
 
-/* 数据项 - 核心调整：Grid布局6列→7列，与表头精准对齐 */
+/* 数据项 - 核心：严格匹配表头7列宽 */
 .table-item {
     display: grid;
-    grid-template-columns: 50px 1fr 1.5fr 1.2fr 1.4fr 1.3fr 120px;
+    grid-template-columns: 40px 0.5fr 0.6fr 0.6fr 0.8fr 0.8fr 140px;
     padding: 16px 24px;
     border-bottom: 1px solid var(--gray-100);
     color: var(--gray-700);
@@ -1439,7 +1431,7 @@ select.form-control {
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    height: 300px;
+    height: 380px;
     padding: 40px 0;
     color: #999;
 }
@@ -1561,16 +1553,14 @@ select.form-control {
 }
 
 /* ==============================================
-   动画关键帧 + 全局响应式适配（768px/1200px断点）- 核心新增：7列表格移动端适配
+   动画关键帧 + 全局响应式适配（768px/1200px断点）
    ============================================== */
 @keyframes pulse {
-
     0%,
     100% {
         opacity: 1;
         box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4);
     }
-
     50% {
         opacity: 0.7;
         box-shadow: 0 0 0 4px rgba(16, 185, 129, 0);
@@ -1582,7 +1572,6 @@ select.form-control {
         opacity: 0;
         transform: translateY(16px);
     }
-
     to {
         opacity: 1;
         transform: translateY(0);
@@ -1593,17 +1582,15 @@ select.form-control {
     0% {
         transform: scale(1);
     }
-
     50% {
         transform: scale(1.02);
     }
-
     100% {
         transform: scale(1);
     }
 }
 
-/* 平板横屏 - 1200px以下（无圆角+适配7列表格） */
+/* 平板横屏 - 1200px以下（无圆角+列宽比例不变，仅调整内边距） */
 @media (max-width: 1200px) {
     .main-container {
         flex-direction: column;
@@ -1629,20 +1616,19 @@ select.form-control {
         grid-template-columns: repeat(2, 1fr);
     }
 
-    /* 7列表格平板适配：压缩列宽 */
+    /* 7列表格平板适配：列宽比例不变，仅压缩内边距 */
     .data-table-header,
     .table-item {
-        grid-template-columns: 50px 1fr 1.2fr 1fr 1.1fr 1fr 100px;
+        grid-template-columns: 40px 0.5fr 0.6fr 0.6fr 0.8fr 0.8fr 140px;
         padding: 16px 18px;
     }
 
     .col-operate {
-        flex: 0 0 100px !important;
         gap: 4px;
     }
 }
 
-/* 手机竖屏 - 768px以下（核心适配+无圆角+7列表格+工具栏） */
+/* 手机竖屏 - 768px以下（核心适配+微调操作列宽度） */
 @media (max-width: 768px) {
     .content-header {
         padding: 24px 20px;
@@ -1750,24 +1736,24 @@ select.form-control {
         font-size: 0.85rem;
     }
 
-    /* 核心适配：7列表格移动端压缩为窄列 */
+    /* 核心适配：7列表格移动端微调操作列至100px，其余列比例不变 */
     .data-table-header {
         padding: 14px 16px;
-        grid-template-columns: 40px 1fr 1fr 0.9fr 1fr 0.9fr 90px;
+        grid-template-columns: 40px 0.5fr 0.6fr 0.6fr 0.8fr 0.8fr 100px;
     }
 
     .table-item {
         padding: 14px 16px;
-        grid-template-columns: 40px 1fr 1fr 0.9fr 1fr 0.9fr 90px;
+        grid-template-columns: 40px 0.5fr 0.6fr 0.6fr 0.8fr 0.8fr 100px;
         font-size: 0.85rem;
     }
 
     .col-check {
-        flex: 0 0 40px !important;
+        flex: 0 0 40px !important; /* 保持勾选列40px不变 */
     }
 
     .col-operate {
-        flex: 0 0 90px !important;
+        flex: 0 0 100px !important; /* 匹配小屏操作列宽度 */
         gap: 4px;
     }
 
