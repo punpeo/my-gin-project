@@ -1,9 +1,9 @@
 /**
- * 商品查询模块 - 最终完整版（行操作UI重设计）
+ * 商品查询模块 - 最终完整版（行操作UI重设计 + 悬浮弹窗提示）
  * 核心功能：1.表格行编辑/复制按钮UI全新设计（整洁美观、清晰区分）2.输入框右侧清除叉号 3.表格复制编码自动解析
- * 4.双复制按钮（顶部批量+行内单行）5.仅查询loading提示 6.防表单冲突 7.完整业务功能（增删改查/导入/分页）
+ * 4.双复制按钮（顶部批量+行内单行）5.悬浮弹窗提示（loading/成功/失败）6.防表单冲突 7.完整业务功能（增删改查/导入/分页）
  * 8.列表数据按照用户输入的表单数据顺序排序
- * 优化点：修复新增商品弹窗提交按钮未触发API的问题
+ * 优化点：1.修复新增商品弹窗提交按钮未触发API的问题 2.提示改为悬浮居中弹窗，不影响业务操作
  */
 (function () {
     if (window.ProductQueryModule && window.ProductQueryModule.initialized) {
@@ -493,7 +493,6 @@
             try {
                 // 1. 表单验证
                 if (!this._validateAddEditForm()) {
-
                     return;
                 }
                 // 2. 收集表单数据
@@ -506,17 +505,14 @@
                     merchant_code: this.el.inputAddMerchantCode.value.trim()
                 };
 
-
                 // 3. 禁用提交按钮，防止重复点击
                 this.el.btnSubmitAdd.disabled = true;
                 this._showMessage('loading', this.state.editId ? '正在修改商品...' : '正在新增商品...');
 
                 // 4. 调用后端API
-
                 const res = this.state.editId
                     ? await this.editProduct({ id: this.state.editId, ...productData })
                     : await this.createProduct(productData);
-
 
                 // 5. 处理API返回结果
                 this._clearMessage();
@@ -689,29 +685,91 @@
             el.btnNextPage.disabled = this.state.currentPage >= totalPage;
         },
 
+        // 🔥 核心修改：替换为悬浮弹窗提示
         _showMessage: function (type, msg) {
-            const container = this.el.responseContainer;
-            container.innerHTML = '';
-            const msgEl = document.createElement('div');
-            msgEl.className = `query-response-content ${type}`;
-            msgEl.innerHTML = type === 'loading'
-                ? `<i class="fas fa-spinner fa-spin"></i> ${msg}`
-                : `<i class="fas ${type === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle'}"></i> ${msg}`;
-            container.appendChild(msgEl);
+            // 先清除旧的弹窗，避免叠加
+            this._clearMessage();
+
+            // 1. 创建遮罩层（轻量，不阻止点击，仅视觉分层）
+            const mask = document.createElement('div');
+            mask.id = 'msg-toast-mask';
+            Object.assign(mask.style, {
+                position: 'fixed',
+                top: 0,
+                left: 0,
+                width: '100vw',
+                height: '100vh',
+                backgroundColor: 'rgba(0,0,0,0.05)', // 轻量半透明，不影响业务操作
+                zIndex: 9998,
+                pointerEvents: 'none' // 关键：不阻止页面点击，不影响业务
+            });
+
+            // 2. 创建弹窗主体
+            const toast = document.createElement('div');
+            toast.id = 'msg-toast';
+            toast.className = `msg-toast ${type}`;
+            // 弹窗核心样式：居中、悬浮、高层级
+            const baseStyle = {
+                position: 'fixed',
+                top: '50%',
+                left: '50%',
+                transform: 'translate(-50%, -50%)',
+                padding: '16px 24px',
+                borderRadius: '8px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
+                color: '#fff',
+                fontSize: '14px',
+                zIndex: 9999,
+                boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                pointerEvents: 'none', // 不阻止底层点击
+                whiteSpace: 'nowrap' // 防止文字换行
+            };
+            // 不同类型的底色区分
+            const typeStyle = {
+                loading: { backgroundColor: '#606266' }, // 加载：灰色
+                success: { backgroundColor: '#67c23a' }, // 成功：绿色
+                error: { backgroundColor: '#f56c6c' }     // 失败：红色
+            };
+            Object.assign(toast.style, baseStyle, typeStyle[type]);
+
+            // 3. 填充弹窗内容（保留原有图标和文字）
+            const iconClass = type === 'loading' 
+                ? 'fas fa-spinner fa-spin' 
+                : (type === 'success' ? 'fas fa-check-circle' : 'fas fa-exclamation-circle');
+            toast.innerHTML = `<i class="${iconClass}" style="font-size: 18px;"></i><span>${msg}</span>`;
+
+            // 4. 添加到页面body
+            document.body.appendChild(mask);
+            document.body.appendChild(toast);
+
+            // 5. 保留原有自动消失逻辑（loading类型不消失）
             if (type !== 'loading') {
-                setTimeout(() => container.innerHTML = '', 3000);
+                setTimeout(() => {
+                    this._clearMessage();
+                }, 3000);
             }
         },
 
+        // 🔥 核心修改：移除悬浮弹窗和遮罩
         _clearMessage: function () {
-            this.el.responseContainer.innerHTML = '';
+            // 移除悬浮弹窗
+            const toast = document.getElementById('msg-toast');
+            if (toast) document.body.removeChild(toast);
+            // 移除遮罩层
+            const mask = document.getElementById('msg-toast-mask');
+            if (mask) document.body.removeChild(mask);
+            // 兼容原有responseContainer清空（防止残留）
+            if (this.el.responseContainer) {
+                this.el.responseContainer.innerHTML = '';
+            }
         },
 
         // 🔥 关键修改3：增强API调用的异常捕获和日志
         // 后端接口
         createProduct: async function (data) {
             try {
-
                 const res = await fetch(`${this.apiBase}/create`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -731,7 +789,6 @@
         },
         editProduct: async function (data) {
             try {
-
                 const res = await fetch(`${this.apiBase}/edit`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
