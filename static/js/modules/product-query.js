@@ -42,7 +42,7 @@
                 this._updateBatchCopyBtnStatus();
                 this._updateClearIconStatus();
 
-                console.log('ProductQueryModule 初始化成功（行操作UI重设计版）');
+
             } catch (e) {
                 console.error('ProductQueryModule 初始化失败：', e.message);
                 this.initialized = false;
@@ -299,7 +299,7 @@
                 this._clearMessage();
                 if (res.code === 0) {
                     this.state.total = res.data.total;
-                    
+
                     // 新增排序逻辑：按照用户输入顺序排序
                     let sortedList = res.data.list;
                     if (barCodes.length > 0) {
@@ -309,7 +309,7 @@
                         // 按事业部编码输入顺序排序
                         sortedList = this._sortListByInputOrder(sortedList, businessCodes, 'business_code');
                     }
-                    
+
                     this._renderTable(sortedList);
                     this._updatePaginationUI();
                 } else {
@@ -322,24 +322,24 @@
                 this._updateBatchCopyBtnStatus();
             }
         },
-        
+
         // 新增排序方法：按照用户输入顺序排序
-        _sortListByInputOrder: function(list, inputOrder, field) {
+        _sortListByInputOrder: function (list, inputOrder, field) {
             // 创建输入值的索引映射
             const indexMap = {};
             inputOrder.forEach((value, index) => {
                 indexMap[value] = index;
             });
-            
+
             // 创建列表项的副本进行排序
             return list.slice().sort((a, b) => {
                 const aValue = a[field];
                 const bValue = b[field];
-                
+
                 // 获取值在输入顺序中的索引
                 const aIndex = indexMap.hasOwnProperty(aValue) ? indexMap[aValue] : Infinity;
                 const bIndex = indexMap.hasOwnProperty(bValue) ? indexMap[bValue] : Infinity;
-                
+
                 // 比较索引值
                 return aIndex - bIndex;
             });
@@ -493,29 +493,30 @@
             try {
                 // 1. 表单验证
                 if (!this._validateAddEditForm()) {
-                    console.log('表单验证失败，终止提交');
+
                     return;
                 }
                 // 2. 收集表单数据
                 const productData = {
+                    id: this.state.editId ? Number(this.state.editId) : '', // 🔥 转为数字类型
                     shop: this.el.inputAddShop.value.trim(),
                     product_name: this.el.inputAddProductName.value.trim(),
                     bar_code: this.el.inputAddBarCode.value.trim(),
                     business_code: this.el.inputAddBusinessCode.value.trim(),
                     merchant_code: this.el.inputAddMerchantCode.value.trim()
                 };
-                console.log('表单数据收集完成', productData);
-                
+
+
                 // 3. 禁用提交按钮，防止重复点击
                 this.el.btnSubmitAdd.disabled = true;
                 this._showMessage('loading', this.state.editId ? '正在修改商品...' : '正在新增商品...');
-                
+
                 // 4. 调用后端API
-                console.log('开始调用后端API', this.state.editId ? '编辑' : '新增');
-                const res = this.state.editId 
+
+                const res = this.state.editId
                     ? await this.editProduct({ id: this.state.editId, ...productData })
                     : await this.createProduct(productData);
-                console.log('API调用返回结果', res);
+
 
                 // 5. 处理API返回结果
                 this._clearMessage();
@@ -693,7 +694,7 @@
             container.innerHTML = '';
             const msgEl = document.createElement('div');
             msgEl.className = `query-response-content ${type}`;
-            msgEl.innerHTML = type === 'loading' 
+            msgEl.innerHTML = type === 'loading'
                 ? `<i class="fas fa-spinner fa-spin"></i> ${msg}`
                 : `<i class="fas ${type === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle'}"></i> ${msg}`;
             container.appendChild(msgEl);
@@ -710,7 +711,7 @@
         // 后端接口
         createProduct: async function (data) {
             try {
-                console.log('调用新增商品API：', `${this.apiBase}/create`);
+
                 const res = await fetch(`${this.apiBase}/create`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -730,7 +731,7 @@
         },
         editProduct: async function (data) {
             try {
-                console.log('调用编辑商品API：', `${this.apiBase}/edit`);
+
                 const res = await fetch(`${this.apiBase}/edit`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },

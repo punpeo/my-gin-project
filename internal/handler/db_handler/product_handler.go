@@ -117,8 +117,11 @@ func (h *productHandler) GetByID(c *gin.Context) {
 func (h *productHandler) UpdateProduct(c *gin.Context) {
 	// 1. 绑定前端JSON参数到业务DTO(ShopGoods)
 	var req service.ShopGoods
+	logger.Infof("接收到修改商品请求，参数：%+v", req)
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Fail(c, http.StatusBadRequest, "参数格式错误")
+		//分析错误
+		logger.Errorf("参数错误：%s", err.Error())
 		return
 	}
 

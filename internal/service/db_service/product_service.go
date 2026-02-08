@@ -25,22 +25,22 @@ type PageQueryReq struct {
 }
 
 type ShopGoods struct {
-	ID           uint   `json:"id" binding:"required"`
-	Shop         string `json:"shop" binding:"required"`
-	ProductName  string `json:"product_name" binding:"required"`
-	BarCode      string `json:"bar_code" binding:"required"`
-	BusinessCode string `json:"business_code" binding:"required"`
-	MerchantCode string `json:"merchant_code" binding:"required"`
+	ID           uint   `form:"id" json:"id" binding:"required"`
+	Shop         string `form:"shop" json:"shop" binding:"required"`
+	ProductName  string `form:"product_name" json:"product_name" binding:"required"`
+	BarCode      string `form:"bar_code" json:"bar_code" binding:"required"`
+	BusinessCode string `form:"business_code" json:"business_code" binding:"required"`
+	MerchantCode string `form:"merchant_code" json:"merchant_code" binding:"required"`
 }
 
 // service/req.go 新增/导入商品相关请求结构体
 // ShopGoodsReq 单条新增商品请求（适配手动录入单条数据）
 type ShopGoodsReq struct {
-	Shop         string `form:"shop" json:"shop" binding:"required"`                 // 店铺
-	ProductName  string `form:"productName" json:"productName" binding:"required"`   // 产品名称
-	BarCode      string `form:"barCode" json:"barCode" binding:"required"`           // 商品条码（唯一）
-	BusinessCode string `form:"businessCode" json:"businessCode" binding:"required"` // 事业部编码
-	MerchantCode string `form:"merchantCode" json:"merchantCode" binding:"required"` // 商家商品标识
+	Shop         string `form:"shop" json:"shop" binding:"required"`                   // 店铺
+	ProductName  string `form:"product_name" json:"product_name" binding:"required"`   // 产品名称
+	BarCode      string `form:"bar_code" json:"bar_code" binding:"required"`           // 商品条码（唯一）
+	BusinessCode string `form:"business_code" json:"business_code" binding:"required"` // 事业部编码
+	MerchantCode string `form:"merchant_code" json:"merchant_code" binding:"required"` // 商家商品标识
 }
 
 // BatchShopGoodsReq 多条新增商品请求（适配手动批量录入）
