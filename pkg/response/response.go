@@ -61,9 +61,10 @@ const (
 // 场景：大部分接口的成功响应（无需自定义消息/状态码）
 func Success(c *gin.Context, data interface{}) {
 	c.JSON(HTTPStatusOK, BaseResponse{
-		Code: CodeSuccess,
-		Msg:  "操作成功",
-		Data: data,
+		Code:    CodeSuccess,
+		Msg:     "操作成功",
+		Data:    data,
+		Success: true,
 	})
 }
 
