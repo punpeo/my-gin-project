@@ -1,9 +1,9 @@
 /**
- * 商品查询模块 - 最终完整版（行操作UI重设计 + 悬浮弹窗提示）
+ * 商品查询模块 - 最终完整版（行操作UI重设计 + 悬浮弹窗提示 + 复制高亮反馈）
  * 核心功能：1.表格行编辑/复制按钮UI全新设计（整洁美观、清晰区分）2.输入框右侧清除叉号 3.表格复制编码自动解析
  * 4.双复制按钮（顶部批量+行内单行）5.悬浮弹窗提示（loading/成功/失败）6.防表单冲突 7.完整业务功能（增删改查/导入/分页）
- * 8.列表数据按照用户输入的表单数据顺序排序
- * 优化点：1.修复新增商品弹窗提交按钮未触发API的问题 2.提示改为悬浮居中弹窗，不影响业务操作
+ * 8.列表数据按照用户输入的表单数据顺序排序 9.复制按钮点击高亮反馈
+ * 优化点：1.修复新增商品弹窗提交按钮未触发API的问题 2.提示改为悬浮居中弹窗，不影响业务操作 3.复制按钮添加点击高亮动画
  */
 (function () {
     if (window.ProductQueryModule && window.ProductQueryModule.initialized) {
@@ -223,7 +223,7 @@
                     return;
                 }
                 if (copyBtn) {
-                    that._handleSingleCopy(copyBtn.dataset.code);
+                    that._handleSingleCopy(copyBtn); // 修改：传入按钮元素而非仅编码
                     return;
                 }
             });
@@ -268,11 +268,45 @@
             ].join('\t');
         },
 
+        // 🔥 新增：复制按钮高亮动画效果
+        _highlightCopyButton: function (button) {
+            if (!button) return;
+            
+            // 禁用按钮防止重复点击
+            button.disabled = true;
+            
+            // 保存原有样式
+            const originalBg = button.style.background;
+            const originalColor = button.style.color;
+            const originalTransform = button.style.transform;
+            
+            // 设置高亮样式（绿色背景+白色文字+放大效果）
+            button.style.background = '#67c23a';
+            button.style.color = '#fff';
+            button.style.transform = 'scale(1.1)';
+            button.style.transition = 'all 0.2s ease';
+            
+            // 修改按钮文字和图标
+            const originalHTML = button.innerHTML;
+            button.innerHTML = '<i class="fas fa-check" style="font-size: 11px;"></i> 已复制';
+            
+            // 1.5秒后恢复原有样式
+            setTimeout(() => {
+                button.style.background = originalBg;
+                button.style.color = originalColor;
+                button.style.transform = originalTransform;
+                button.innerHTML = originalHTML;
+                button.disabled = false;
+            }, 1500);
+        },
+
         _copyToClipboard: async function (text) {
             try {
                 await navigator.clipboard.writeText(text);
+                return true; // 复制成功返回true
             } catch (e) {
                 console.error('复制失败：', e);
+                return false; // 复制失败返回false
             }
         },
 
@@ -359,35 +393,83 @@
             return { valid: true, errorInput: null };
         },
 
+        // 🔥 优化：批量复制按钮添加高亮反馈
         _handleBatchCopy: async function () {
             const checkItems = this.el.tableBody.querySelectorAll('.check-item:checked');
             if (!checkItems.length) return;
-            const copyData = [];
-            checkItems.forEach(item => {
-                const row = item.closest('.table-item');
-                copyData.push(this._formatTableData({
+            
+            const copyBtn = this.el.btnCopyBatch;
+            // 立即显示加载状态
+            copyBtn.disabled = true;
+            const originalHTML = copyBtn.innerHTML;
+            copyBtn.innerHTML = '<i class="fas fa-spinner fa-spin" style="font-size: 11px;"></i> 复制中...';
+            
+            try {
+                const copyData = [];
+                checkItems.forEach(item => {
+                    const row = item.closest('.table-item');
+                    copyData.push(this._formatTableData({
+                        shop: row.querySelector('.col-shop').textContent.trim(),
+                        product_name: row.querySelector('.col-prod-name').textContent.trim(),
+                        bar_code: row.querySelector('.col-barcode').textContent.trim(),
+                        business_code: row.querySelector('.col-business-code').textContent.trim(),
+                        merchant_code: row.querySelector('.col-merchant-code').textContent.trim()
+                    }));
+                });
+                
+                // 执行复制操作
+                const isSuccess = await this._copyToClipboard(copyData.join('\n'));
+                
+                if (isSuccess) {
+                    // 复制成功：显示高亮效果
+                    this._highlightCopyButton(copyBtn);
+                    this._showMessage('success', '批量复制成功！');
+                } else {
+                    // 复制失败：恢复状态并提示
+                    copyBtn.innerHTML = originalHTML;
+                    copyBtn.disabled = false;
+                    this._showMessage('error', '批量复制失败，请重试！');
+                }
+            } catch (e) {
+                // 异常处理
+                copyBtn.innerHTML = originalHTML;
+                copyBtn.disabled = false;
+                this._showMessage('error', '批量复制异常：' + e.message);
+                console.error('批量复制失败', e);
+            }
+        },
+
+        // 🔥 优化：单行复制按钮添加高亮反馈
+        _handleSingleCopy: async function (copyBtn) {
+            if (!copyBtn) return;
+            
+            try {
+                const barCode = copyBtn.dataset.code;
+                const row = copyBtn.closest('.table-item');
+                const copyText = this._formatTableData({
                     shop: row.querySelector('.col-shop').textContent.trim(),
                     product_name: row.querySelector('.col-prod-name').textContent.trim(),
                     bar_code: row.querySelector('.col-barcode').textContent.trim(),
                     business_code: row.querySelector('.col-business-code').textContent.trim(),
                     merchant_code: row.querySelector('.col-merchant-code').textContent.trim()
-                }));
-            });
-            await this._copyToClipboard(copyData.join('\n'));
-        },
-
-        _handleSingleCopy: async function (barCode) {
-            const copyBtn = this.el.tableBody.querySelector(`.btn-row-copy[data-code="${barCode}"]`);
-            if (!copyBtn) return;
-            const row = copyBtn.closest('.table-item');
-            const copyText = this._formatTableData({
-                shop: row.querySelector('.col-shop').textContent.trim(),
-                product_name: row.querySelector('.col-prod-name').textContent.trim(),
-                bar_code: row.querySelector('.col-barcode').textContent.trim(),
-                business_code: row.querySelector('.col-business-code').textContent.trim(),
-                merchant_code: row.querySelector('.col-merchant-code').textContent.trim()
-            });
-            await this._copyToClipboard(copyText);
+                });
+                
+                // 执行复制操作
+                const isSuccess = await this._copyToClipboard(copyText);
+                
+                if (isSuccess) {
+                    // 复制成功：显示高亮效果
+                    this._highlightCopyButton(copyBtn);
+                    this._showMessage('success', '复制成功！');
+                } else {
+                    // 复制失败：提示用户
+                    this._showMessage('error', '复制失败，请重试！');
+                }
+            } catch (e) {
+                // 异常处理
+                this._showMessage('error', '复制异常：' + e.message);
+                console.error('单行复制失败', e);
+            }
         },
 
         _validateAddEditForm: function () {
