@@ -29,7 +29,7 @@ type ExcelProcessRequest struct {
 // ExcelProcessResponse 响应参数结构
 type ExcelProcessResponse struct {
 	TotalRows     int                `json:"total_rows"`
-	GroupCount    int                `json:"group_count"`
+	GroupCount    int                `json:"groups"`
 	Groups        map[string]int     `json:"groups"`
 	GroupAverages map[string]float64 `json:"group_averages"`
 	Base64Data    string             `json:"base64_data"`
@@ -70,11 +70,15 @@ func (s *excelService) ProcessExcel(req ExcelProcessRequest) (*ExcelProcessRespo
 	outputFile := excelize.NewFile()
 	sheet := "Sheet1"
 
-	// 设置表头
+	// 设置表头 - 新增：在原有表头后添加"原文件名字"列
 	headers := append([]string{req.MatchColumn}, req.KeepColumns...)
 	if req.AverageColumn != "" {
 		headers = append(headers, "平均值")
 	}
+	// 新增代码：添加"原文件名字"表头
+	headers = append(headers, "原文件名字")
+	// --- 新增结束 ---
+
 	for colIdx, header := range headers {
 		cell, _ := excelize.CoordinatesToCellName(colIdx+1, 1)
 		outputFile.SetCellValue(sheet, cell, header)
@@ -85,7 +89,7 @@ func (s *excelService) ProcessExcel(req ExcelProcessRequest) (*ExcelProcessRespo
 		matchValue string
 		keepValues []string
 		averageVal float64
-		sourceFile string
+		sourceFile string // 原本就有这个字段，用于存储源文件名
 	}
 
 	groupData := make(map[string][]rowData)
@@ -143,7 +147,7 @@ func (s *excelService) ProcessExcel(req ExcelProcessRequest) (*ExcelProcessRespo
 			matchValue := strings.TrimSpace(row[matchColIdx])
 
 			// 跳过统计行
-			if strings.Contains(matchValue, "总值") || strings.Contains(matchValue, "均值") {
+			if strings.Contains(matchValue, "通用") || strings.Contains(matchValue, "均值") {
 				continue
 			}
 
@@ -179,12 +183,12 @@ func (s *excelService) ProcessExcel(req ExcelProcessRequest) (*ExcelProcessRespo
 				}
 			}
 
-			// 将数据按分组值存储
+			// 将数据按分组值存储（原本就会存储sourceFile）
 			groupData[matchValue] = append(groupData[matchValue], rowData{
 				matchValue: matchValue,
 				keepValues: keepValues,
 				averageVal: averageValue,
-				sourceFile: filepath.Base(path),
+				sourceFile: filepath.Base(path), // 源文件名已存储
 			})
 		}
 		return nil
@@ -220,6 +224,9 @@ func (s *excelService) ProcessExcel(req ExcelProcessRequest) (*ExcelProcessRespo
 			if req.AverageColumn != "" {
 				outputRow = append(outputRow, fmt.Sprintf("%.2f", row.averageVal))
 			}
+			// 新增代码：添加源文件名到输出行
+			outputRow = append(outputRow, row.sourceFile)
+			// --- 新增结束 ---
 
 			for colIdx, value := range outputRow {
 				cell, _ := excelize.CoordinatesToCellName(colIdx+1, rowIndex)
