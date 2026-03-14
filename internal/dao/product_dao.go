@@ -16,6 +16,10 @@ var ProductDao = new(productDao)
 
 type productDao struct{}
 
+func (d *productDao) BatchCreateWithTransaction(products []model.ProductInfo) (any, any) {
+	panic("unimplemented")
+}
+
 // GetByBarCode 根据商品条码查询单条记录
 func (d *productDao) GetByBarCode(barCode string) (*model.ProductInfo, error) {
 	var product model.ProductInfo

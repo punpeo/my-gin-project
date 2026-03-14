@@ -94,7 +94,7 @@ func SetupRouter() *gin.Engine {
 		v2.POST("/product/all-with-page", db_handler.ProductHandler.ListAllWithPage)
 		v2.POST("/product/id", db_handler.ProductHandler.GetByID)
 		v2.POST("/product/edit", db_handler.ProductHandler.UpdateProduct)
-		v2.POST("/product/import-excel", db_handler.ProductHandler.ImportByExcel)
+		v2.POST("/product/import", db_handler.ProductHandler.ImportByExcel)
 		v2.POST("/product/create", db_handler.ProductHandler.CreateOne)
 		v2.POST("/product/create-batch", db_handler.ProductHandler.CreateBatch)
 	}
