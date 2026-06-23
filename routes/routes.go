@@ -1,9 +1,8 @@
 package routes
 
 import (
-	"go-gin/internal/handler"
 	"go-gin/internal/handler/db_handler"
-	"go-gin/internal/handler/v1"
+	v1_handler "go-gin/internal/handler/v1"
 	v3_handler "go-gin/internal/handler/v3"
 	v4_handler "go-gin/internal/handler/v4"
 
@@ -47,9 +46,9 @@ func SetupRouter() *gin.Engine {
 		// 基础通用接口子分组
 		base := v1.Group("/base")
 		{
-			base.GET("/greet", handler.GreetHandler)
-			base.POST("/greet", handler.GreetPostHandler)
-			base.GET("/files/names", handler.GetFilesNamesHandler)
+			base.GET("/greet", v1_handler.GreetHandler)
+			base.POST("/greet", v1_handler.GreetPostHandler)
+			base.GET("/files/names", v1_handler.GetFilesNamesHandler)
 		}
 
 		// 库存管理接口子分组

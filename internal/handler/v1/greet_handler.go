@@ -1,4 +1,4 @@
-package handler
+package v1_handler
 
 import (
 	v1_service "go-gin/internal/service/v1"
