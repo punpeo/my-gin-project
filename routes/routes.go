@@ -96,7 +96,8 @@ func SetupRouter() *gin.Engine {
 		v2.POST("/product/edit", db_handler.ProductHandler.UpdateProduct)
 		v2.POST("/product/import", db_handler.ProductHandler.ImportByExcel)
 		v2.POST("/product/create", db_handler.ProductHandler.CreateOne)
-		v2.POST("/product/create-batch", db_handler.ProductHandler.CreateBatch)
+		v2.POST("/product/create-batch", db_handler.ProductHandler.CreateBatch) //去postman导入
+
 	}
 
 	// 可选：添加静态HTML文件的兜底路由（防止模块页面访问异常）
