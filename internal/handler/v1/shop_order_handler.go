@@ -1,7 +1,7 @@
-package handler
+package v1_handler
 
 import (
-	"go-gin/internal/service"
+	v1_service "go-gin/internal/service/v1"
 	"go-gin/pkg/response"
 
 	"github.com/gin-gonic/gin"
@@ -19,7 +19,7 @@ func StatShopOrderByPath(c *gin.Context) {
 	}
 
 	// 2. 调用服务层统计数据（接收总订单数、总金额）
-	statList, err := service.StatShopOrder(req.BasePath)
+	statList, err := v1_service.StatShopOrder(req.BasePath)
 	if err != nil {
 		response.Fail(c, 500, "统计失败："+err.Error())
 		return
@@ -66,7 +66,7 @@ func StatShopOrderByUpload(c *gin.Context) {
 	}
 
 	// 4. 调用服务层统计数据（上传文件方式）
-	statList, err := service.StatShopOrderByUpload(fileBytes, fileName)
+	statList, err := v1_service.StatShopOrderByUpload(fileBytes, fileName)
 	if err != nil {
 		response.Fail(c, 500, "统计失败："+err.Error())
 		return

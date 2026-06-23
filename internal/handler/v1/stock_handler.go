@@ -1,7 +1,7 @@
-package handler
+package v1_handler
 
 import (
-	"go-gin/internal/service"
+	v1_service "go-gin/internal/service/v1"
 	"go-gin/pkg/response"
 	"net/url"
 	"strconv"
@@ -13,7 +13,7 @@ import (
 // StockStatisticHandler 库存统计接口处理器（执行+下载）
 func StockStatisticHandler(c *gin.Context) {
 	// 1. 绑定请求参数
-	var req service.StockStatisticRequest
+	var req v1_service.StockStatisticRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.BadRequest(c, "参数解析失败，请检查输入格式")
 		return
@@ -34,7 +34,7 @@ func StockStatisticHandler(c *gin.Context) {
 	}
 
 	// 3. 调用服务层执行库存统计
-	resp, err := service.StockStatistic(req)
+	resp, err := v1_service.StockStatistic(req)
 	if err != nil {
 		// 根据错误信息判断错误类型
 		errMsg := err.Error()
@@ -69,7 +69,7 @@ func StockFileDownloadHandler(c *gin.Context) {
 		baseFileName = "kucun.xlsx"
 	}
 
-	req := service.StockStatisticRequest{
+	req := v1_service.StockStatisticRequest{
 		BasePath:     basePath,
 		BaseFileName: baseFileName,
 	}
@@ -81,7 +81,7 @@ func StockFileDownloadHandler(c *gin.Context) {
 	}
 
 	// 读取文件内容
-	fileContent, err := service.GetStockFileContent(req)
+	fileContent, err := v1_service.GetStockFileContent(req)
 	if err != nil {
 		if strings.Contains(err.Error(), "文件不存在") {
 			response.BadRequest(c, "指定的库存文件不存在")
@@ -106,7 +106,7 @@ func StockFileDownloadHandler(c *gin.Context) {
 // DeleteDateColumnHandler 删除日期列接口处理器
 func DeleteDateColumnHandler(c *gin.Context) {
 	// 1. 绑定请求参数
-	var req service.DeleteDateColumnRequest
+	var req v1_service.DeleteDateColumnRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.BadRequest(c, "参数解析失败，请检查输入格式")
 		return
@@ -127,7 +127,7 @@ func DeleteDateColumnHandler(c *gin.Context) {
 	}
 
 	// 3. 调用服务层执行删除日期列
-	resp, err := service.DeleteDateColumn(req)
+	resp, err := v1_service.DeleteDateColumn(req)
 	if err != nil {
 		errMsg := err.Error()
 		switch {
@@ -153,7 +153,7 @@ func DeleteDateColumnHandler(c *gin.Context) {
 // CleanupFileHandler 清理文件接口处理器
 func CleanupFileHandler(c *gin.Context) {
 	// 1. 绑定请求参数
-	var req service.CleanupFileRequest
+	var req v1_service.CleanupFileRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.BadRequest(c, "参数解析失败，请检查输入格式")
 		return
@@ -170,7 +170,7 @@ func CleanupFileHandler(c *gin.Context) {
 	}
 
 	// 3. 调用服务层执行清理
-	resp, err := service.CleanupNonBaseExcelFiles(req)
+	resp, err := v1_service.CleanupNonBaseExcelFiles(req)
 	if err != nil {
 		errMsg := err.Error()
 		switch {

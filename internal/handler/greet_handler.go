@@ -1,7 +1,7 @@
 package handler
 
 import (
-	"go-gin/internal/service"
+	v1_service "go-gin/internal/service/v1"
 	"go-gin/pkg/response"
 
 	"github.com/gin-gonic/gin"
@@ -16,7 +16,7 @@ func GreetHandler(c *gin.Context) {
 	name := c.Query("name")
 
 	// 2. 调用服务层的业务逻辑
-	greetMsg := service.Greet(name)
+	greetMsg := v1_service.Greet(name)
 
 	// 3. 返回统一格式的响应
 	response.Success(c, gin.H{
@@ -39,7 +39,7 @@ func GreetPostHandler(c *gin.Context) {
 	}
 
 	// 3. 调用服务层
-	greetMsg := service.Greet(req.Name)
+	greetMsg := v1_service.Greet(req.Name)
 
 	// 4. 返回响应
 	response.Success(c, gin.H{
@@ -48,7 +48,7 @@ func GreetPostHandler(c *gin.Context) {
 }
 func GetFilesNamesHandler(c *gin.Context) {
 	// 调用服务层获取文件名列表
-	fileNames := service.GetFilesNames()
+	fileNames := v1_service.GetFilesNames()
 	// 返回响应
 	response.Success(c, gin.H{
 		"file_names": fileNames,

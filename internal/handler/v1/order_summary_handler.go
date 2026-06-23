@@ -1,8 +1,8 @@
-package handler
+package v1_handler
 
 import (
 	"fmt"
-	"go-gin/internal/service"
+	v1_service "go-gin/internal/service/v1"
 	"go-gin/pkg/response"
 	"strings"
 
@@ -12,7 +12,7 @@ import (
 // DownloadOrderTemplate 下载订单汇总模板
 func DownloadOrderTemplate(c *gin.Context) {
 	// 获取模板文件字节流
-	base64Content, err := service.DownloadTemplate()
+	base64Content, err := v1_service.DownloadTemplate()
 	if err != nil {
 		response.Fail(c, 500, "生成模板文件失败："+err.Error())
 		return
@@ -67,7 +67,7 @@ func UploadAndProcessOrderExcel(c *gin.Context) {
 	}
 
 	// 4. 处理Excel文件
-	base64Content, summaryResult, err := service.ProcessOrderExcel(buf, userName)
+	base64Content, summaryResult, err := v1_service.ProcessOrderExcel(buf, userName)
 	if err != nil {
 		response.Fail(c, 500, "处理订单数据失败："+err.Error())
 		return

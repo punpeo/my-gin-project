@@ -1,4 +1,4 @@
-package service
+package v3_service
 
 import (
 	"errors"

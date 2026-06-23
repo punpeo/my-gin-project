@@ -1,4 +1,4 @@
-package handler
+package v3_handler
 
 import (
 	"encoding/base64"
@@ -10,7 +10,7 @@ import (
 
 	"go-gin/config"
 	"go-gin/internal/model"
-	"go-gin/internal/service"
+	v3_service "go-gin/internal/service/v3"
 	"go-gin/pkg/response"
 
 	"github.com/gin-gonic/gin"
@@ -67,7 +67,7 @@ func SalesExportHandler(c *gin.Context) {
 	}
 
 	// 4. 执行业务：统计SKU并生成结果Excel
-	exportData, err := service.SalesExport(req)
+	exportData, err := v3_service.SalesExport(req)
 	if err != nil {
 		errMsg := err.Error()
 		switch {
@@ -102,7 +102,7 @@ func SalesExportHandler(c *gin.Context) {
 
 // CleanSourceHandler 清理E盘原始销售数据源接口
 func CleanSourceHandler(c *gin.Context) {
-	err := service.ClearSourceFile()
+	err := v3_service.ClearSourceFile()
 	if err != nil {
 		errMsg := err.Error()
 		switch {

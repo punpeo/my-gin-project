@@ -2,8 +2,8 @@ package main
 
 import (
 	"go-gin/config"
-	"go-gin/internal/model"   // 新增：导入模型包，用于表结构自动迁移
-	"go-gin/internal/service" // 业务服务层：定时任务所属包
+	"go-gin/internal/model"                 // 新增：导入模型包，用于表结构自动迁移
+	v1_service "go-gin/internal/service/v1" // 业务服务层：定时任务所属包
 	"go-gin/pkg/db"
 	"go-gin/pkg/logger" // 项目日志组件（统一替换原生log）
 	"go-gin/routes"
@@ -50,7 +50,7 @@ func main() {
 	logger.Info("数据库连接测试成功，数据库可用")
 
 	// 步骤6：启动定时清理任务（依赖数据库初始化完成，避免DB nil panic）
-	if err := service.StartCleanupCronJob(); err != nil {
+	if err := v1_service.StartCleanupCronJob(); err != nil {
 		logger.Warnf("启动定时清理任务失败：%v", err)
 	} else {
 		logger.Info("定时清理任务启动成功")

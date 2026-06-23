@@ -1,7 +1,7 @@
-package handler
+package v1_handler
 
 import (
-	"go-gin/internal/service"
+	v1_service "go-gin/internal/service/v1"
 	"go-gin/pkg/logger"
 	"go-gin/pkg/response"
 
@@ -10,13 +10,13 @@ import (
 
 // ExcelFillHandler 填充控制器
 type ExcelFillHandler struct {
-	fillService service.ExcelFillService
+	fillService v1_service.ExcelFillService
 }
 
 // NewExcelFillHandler 创建控制器实例
 func NewExcelFillHandler() *ExcelFillHandler {
 	return &ExcelFillHandler{
-		fillService: service.NewExcelFillService(),
+		fillService: v1_service.NewExcelFillService(),
 	}
 }
 
@@ -56,7 +56,7 @@ func (h *ExcelFillHandler) FillExcel(c *gin.Context) {
 	}
 
 	// 3. 调用Service处理
-	req := service.ExcelFillRequest{
+	req := v1_service.ExcelFillRequest{
 		RootDir:        rootDir,
 		SourceMatchCol: sourceMatchCol,
 		SourceFillCol:  sourceFillCol,

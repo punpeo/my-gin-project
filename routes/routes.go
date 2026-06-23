@@ -3,6 +3,8 @@ package routes
 import (
 	"go-gin/internal/handler"
 	"go-gin/internal/handler/db_handler"
+	"go-gin/internal/handler/v1"
+	v3_handler "go-gin/internal/handler/v3"
 	v4_handler "go-gin/internal/handler/v4"
 
 	"go-gin/internal/middleware"
@@ -53,37 +55,37 @@ func SetupRouter() *gin.Engine {
 		// 库存管理接口子分组
 		stock := v1.Group("/stock")
 		{
-			stock.POST("/statistic", handler.StockStatisticHandler)
-			stock.POST("/delete-date-column", handler.DeleteDateColumnHandler)
-			stock.GET("/download", handler.StockFileDownloadHandler)
-			stock.POST("/cleanup", handler.CleanupFileHandler)
+			stock.POST("/statistic", v1_handler.StockStatisticHandler)
+			stock.POST("/delete-date-column", v1_handler.DeleteDateColumnHandler)
+			stock.GET("/download", v1_handler.StockFileDownloadHandler)
+			stock.POST("/cleanup", v1_handler.CleanupFileHandler)
 		}
 
 		// 订单管理接口子分组
 		order := v1.Group("/order")
 		{
-			order.GET("/download-template", handler.DownloadOrderTemplate)
-			order.POST("/upload-process", handler.UploadAndProcessOrderExcel)
+			order.GET("/download-template", v1_handler.DownloadOrderTemplate)
+			order.POST("/upload-process", v1_handler.UploadAndProcessOrderExcel)
 		}
 
 		// 店铺订单管理接口子分组
 		shopOrder := v1.Group("/shop-order")
 		{
-			shopOrder.POST("/statistic-by-path", handler.StatShopOrderByPath)
-			shopOrder.POST("/statistic-by-upload", handler.StatShopOrderByUpload)
+			shopOrder.POST("/statistic-by-path", v1_handler.StatShopOrderByPath)
+			shopOrder.POST("/statistic-by-upload", v1_handler.StatShopOrderByUpload)
 		}
 
 		// 周期销量统计接口子分组
 		cycleSales := v1.Group("/cycle-sales")
 		{
-			cycleSales.POST("/statistic", handler.CycleSalesStatisticHandler)
+			cycleSales.POST("/statistic", v1_handler.CycleSalesStatisticHandler)
 		}
 
 		// Excel处理通用接口子分组
 		excel := v1.Group("/excel")
 		{
-			excel.POST("/process", handler.NewExcelHandler().ProcessExcel)
-			excel.POST("/fill", handler.NewExcelFillHandler().FillExcel)
+			excel.POST("/process", v1_handler.NewExcelHandler().ProcessExcel)
+			excel.POST("/fill", v1_handler.NewExcelFillHandler().FillExcel)
 		}
 	}
 
@@ -103,8 +105,8 @@ func SetupRouter() *gin.Engine {
 	}
 	v3 := r.Group("/api/v3")
 	{
-		v3.POST("/sales/export", handler.SalesExportHandler)
-		v3.POST("/sales/cleanSource", handler.CleanSourceHandler)
+		v3.POST("/sales/export", v3_handler.SalesExportHandler)
+		v3.POST("/sales/cleanSource", v3_handler.CleanSourceHandler)
 	}
 	//工具接口
 	v4 := r.Group("/api/v4")

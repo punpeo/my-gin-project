@@ -1,8 +1,8 @@
-package handler
+package v1_handler
 
 import (
 	"fmt"
-	"go-gin/internal/service"
+	v1_service "go-gin/internal/service/v1"
 	"go-gin/pkg/logger"
 	"go-gin/pkg/response"
 	"time"
@@ -12,20 +12,20 @@ import (
 
 // ExcelHandler Excel处理控制器
 type ExcelHandler struct {
-	excelService service.ExcelService
+	excelService v1_service.ExcelService
 }
 
 // NewExcelHandler 创建Excel控制器实例
 func NewExcelHandler() *ExcelHandler {
 	return &ExcelHandler{
-		excelService: service.NewExcelService(),
+		excelService: v1_service.NewExcelService(),
 	}
 }
 
 // ProcessExcel 处理Excel文件请求
 func (h *ExcelHandler) ProcessExcel(c *gin.Context) {
 	// 1. 参数绑定
-	var req service.ExcelProcessRequest
+	var req v1_service.ExcelProcessRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		logger.Errorf("参数绑定失败: %v", err)
 		response.BadRequest(c, "请求参数格式错误")

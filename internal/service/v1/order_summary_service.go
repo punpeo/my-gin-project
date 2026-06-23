@@ -1,4 +1,4 @@
-package service
+package v1_service
 
 import (
 	"bytes" // 新增：导入bytes包
