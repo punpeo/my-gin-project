@@ -3,6 +3,8 @@ package routes
 import (
 	"go-gin/internal/handler"
 	"go-gin/internal/handler/db_handler"
+	v4_handler "go-gin/internal/handler/v4"
+
 	"go-gin/internal/middleware"
 	"go-gin/pkg/response"
 	"time"
@@ -97,6 +99,19 @@ func SetupRouter() *gin.Engine {
 		v2.POST("/product/import", db_handler.ProductHandler.ImportByExcel)
 		v2.POST("/product/create", db_handler.ProductHandler.CreateOne)
 		v2.POST("/product/create-batch", db_handler.ProductHandler.CreateBatch) //去postman导入
+
+	}
+	v3 := r.Group("/api/v3")
+	{
+		v3.POST("/sales/export", handler.SalesExportHandler)
+		v3.POST("/sales/cleanSource", handler.CleanSourceHandler)
+	}
+	//工具接口
+	v4 := r.Group("/api/v4")
+	{
+		//处理Excel文件接口：Excel 批量合并并自动标记源文件名称
+		v4.POST("/excel/process", v4_handler.ExcelMergeHandler.ProcessExcel)
+		v4.POST("/excel/clean", v4_handler.ExcelMergeHandler.CleanSource)
 
 	}
 

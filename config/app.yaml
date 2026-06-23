@@ -17,3 +17,11 @@ product_db:
   max_open_conns: 100
   conn_max_lifetime: 3600
 
+sales_export:
+  source_dir: "E:\\sales_data"
+  template: "模板.xlsx"
+  output_dir: "E:\\sales_data"
+  
+excel_merge:
+  source_dir: "E:/V4/excel_merge/data"
+  output_dir: "E:/V4/excel_merge/output_data"

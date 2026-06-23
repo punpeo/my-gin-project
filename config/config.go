@@ -14,6 +14,19 @@ type AppConfig struct {
 	StockCleanup StockCleanupConfig `yaml:"stock_cleanup"`
 	Log          LogConfig          `yaml:"log"`
 	ProductDB    ProductDBConfig    `yaml:"product_db"`
+	SalesExport  SalesExportConfig  `yaml:"sales_export"`
+	ExcelMerge   ExcelMergeConfig   `yaml:"excel_merge"`
+}
+
+type ExcelMergeConfig struct {
+	SourceDir string `yaml:"source_dir"` // 源文件目录 E:\V4\excel_merge\data
+	OutputDir string `yaml:"output_dir"` // 结果输出目录 E:\V4\excel_merge\output_data
+}
+
+type SalesExportConfig struct {
+	SourceDir string `yaml:"source_dir"`
+	Template  string `yaml:"template"`
+	OutputDir string `yaml:"output_dir"`
 }
 
 type ProductDBConfig struct {
@@ -51,12 +64,34 @@ func LoadConfig() error {
 
 	GlobalConfig = &appConfig
 
+	// stock_cleanup 校验
 	if GlobalConfig.StockCleanup.CronExpression == "" {
 		return fmt.Errorf("stock_cleanup.cron_expression 不能为空")
 	}
 	if GlobalConfig.StockCleanup.BasePath == "" {
 		return fmt.Errorf("stock_cleanup.base_path 不能为空")
 	}
+
+	// sales_export 校验
+	if GlobalConfig.SalesExport.SourceDir == "" {
+		return fmt.Errorf("sales_export.source_dir 数据源目录不能为空")
+	}
+	if GlobalConfig.SalesExport.Template == "" {
+		return fmt.Errorf("sales_export.template 模板文件名不能为空")
+	}
+	if GlobalConfig.SalesExport.OutputDir == "" {
+		return fmt.Errorf("sales_export.output_dir 结果输出目录不能为空")
+	}
+
+	// excel_merge 目录必填校验
+	if GlobalConfig.ExcelMerge.SourceDir == "" {
+		return fmt.Errorf("excel_merge.source_dir 源文件目录不能为空")
+	}
+	if GlobalConfig.ExcelMerge.OutputDir == "" {
+		return fmt.Errorf("excel_merge.output_dir 输出目录不能为空")
+	}
+
+	// 默认值
 	if GlobalConfig.Server.Addr == "" {
 		GlobalConfig.Server.Addr = ":8080"
 	}
