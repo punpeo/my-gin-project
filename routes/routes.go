@@ -5,6 +5,7 @@ import (
 	v1_handler "go-gin/internal/handler/v1"
 	v3_handler "go-gin/internal/handler/v3"
 	v4_handler "go-gin/internal/handler/v4"
+	v5_handler "go-gin/internal/handler/v5"
 
 	"go-gin/internal/middleware"
 	"go-gin/pkg/response"
@@ -114,6 +115,11 @@ func SetupRouter() *gin.Engine {
 		v4.POST("/excel/process", v4_handler.ExcelMergeHandler.ProcessExcel)
 		v4.POST("/excel/clean", v4_handler.ExcelMergeHandler.CleanSource)
 
+	}
+	v5 := r.Group("/api/v5")
+	{
+		v5.POST("/kuaimai/product/query", v5_handler.NewKuaimaiProductQueryHandler().QueryByBarcode)
+		v5.GET("/kuaimai/product/query", v5_handler.NewKuaimaiProductQueryHandler().QueryByBarcode)
 	}
 
 	// 可选：添加静态HTML文件的兜底路由（防止模块页面访问异常）

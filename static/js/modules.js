@@ -16,7 +16,8 @@ const ModulesManager = (function() {
         'shop-order': { html: '/static/modules/shop-order.html', js: '/static/js/modules/shop-order.js', name: '店铺订单统计' },
         'cycle-sales': { html: '/static/modules/cycle-sales.html', js: '/static/js/modules/cycle-sales.js', name: '周期销量统计' },
         'product': { html: '/static/modules/product.html', js: '/static/js/modules/product.js', name: '商品信息查询' },
-        'product-query': { html: '/static/modules/product-query.html', js: '/static/js/modules/product-query.js', name: '商品查询模块' }
+        'product-query': { html: '/static/modules/product-query.html', js: '/static/js/modules/product-query.js', name: '商品查询模块' },
+        'kuaimai-product-query': { html: '/static/modules/kuaimai-product-query.html', js: '/static/js/modules/kuaimai-product-query.js', name: '快买商品查询' }
     };
     
     const moduleRegistry = {};

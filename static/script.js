@@ -8,7 +8,8 @@ document.addEventListener('DOMContentLoaded', function() {
         'shop-order': 'static/modules/shop-order.html',
         'cycle-sales': 'static/modules/cycle-sales.html',
         'dev-module-1': 'static/modules/product.html',
-        'dev-module-2': 'static/modules/dev-module-2.html'
+        'dev-module-2': 'static/modules/dev-module-2.html',
+        'kuaimai-product-query': 'static/modules/kuaimai-product-query.html',
     };
     
     // 获取所有导航项

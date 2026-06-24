@@ -15,6 +15,11 @@ import (
 	"go-gin/pkg/response"
 )
 
+// ExcelMergeReq 合并Excel请求参数
+type ExcelMergeReq struct {
+	ColIndex int `json:"col_index"` // 写入文件名的列下标，0开始，不传默认8(I列)
+}
+
 // ExcelMergeHandler Excel表格合并控制器单例
 var ExcelMergeHandler = new(excelMergeHandler)
 
@@ -23,8 +28,18 @@ type excelMergeHandler struct{}
 // ProcessExcel 批量合并xls/xlsx并标记源文件名，浏览器下载结果
 // @POST /api/v4/excel/process
 func (h *excelMergeHandler) ProcessExcel(c *gin.Context) {
+	var req ExcelMergeReq
+	// 绑定json参数，无参数不会报错
+	_ = c.ShouldBindJSON(&req)
+
+	// 参数校验：未传或小于0，默认8
+	colIdx := req.ColIndex
+	if colIdx < 0 {
+		colIdx = 8
+	}
+
 	svc := v4_service.NewExcelMergeService()
-	resultFilePath, err := svc.RunMerge()
+	resultFilePath, err := svc.RunMerge(colIdx)
 	if err != nil {
 		errMsg := err.Error()
 		logger.Error("Excel合并处理失败, err:", errMsg)
@@ -33,6 +48,8 @@ func (h *excelMergeHandler) ProcessExcel(c *gin.Context) {
 			response.BadRequest(c, "数据源目录不存在，请检查配置或创建目录")
 		case strings.Contains(errMsg, "无xls/xlsx文件"):
 			response.BadRequest(c, "数据源目录下未找到xls/xlsx表格文件")
+		case strings.Contains(errMsg, "列下标不能小于0"):
+			response.BadRequest(c, "传入的列下标不能为负数")
 		default:
 			response.BadRequest(c, "Excel合并处理失败："+errMsg)
 		}

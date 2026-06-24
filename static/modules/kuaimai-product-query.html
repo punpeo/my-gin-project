@@ -1,0 +1,197 @@
+<div class="main-content">
+    <!-- 快麦商品查询表单 -->
+    <form class="form-grid" id="kuaimai-query-form" aria-describedby="kuaimai-query-form-desc">
+        <div id="kuaimai-query-form-desc" class="sr-only">输入快麦商品条码或事业部编码进行查询，多个值用英文逗号分隔。</div>
+        <div class="form-row-3">
+            <div class="form-group">
+                <label class="form-label" for="kuaimai-input-barCode">
+                    <i class="fas fa-barcode"></i> 快麦商品条码
+                </label>
+                <input type="text" class="form-control" name="barCode" id="kuaimai-input-barCode" placeholder="快麦商品条码，多条用逗号分隔" />
+                <div class="invalid-feedback" id="kuaimai-error-barCode"></div>
+            </div>
+            <div class="form-group">
+                <label class="form-label" for="kuaimai-input-businessCode">
+                    <i class="fas fa-code"></i> 事业部编码
+                </label>
+                <input type="text" class="form-control" name="businessCode" id="kuaimai-input-businessCode"
+                    placeholder="事业部商品编码，多条用逗号分隔" />
+                <div class="invalid-feedback" id="kuaimai-error-businessCode"></div>
+            </div>
+            <div class="form-group">
+                <button type="button" class="btn btn-primary" id="kuaimai-btn-query" aria-live="polite">
+                    <i class="fas fa-search"></i> 查询
+                </button>
+            </div>
+        </div>
+    </form>
+
+    <!-- 查询返回信息区 -->
+    <div class="query-response-container" id="kuaimai-query-response-container" aria-live="polite"></div>
+
+    <!-- 数据表格 -->
+    <div class="data-table">
+        <div class="table-toolbar" role="toolbar" aria-label="表格操作工具栏">
+            <div class="toolbar-left">
+                <button class="btn btn-add" id="kuaimai-btn-add" aria-haspopup="dialog">
+                    <i class="fas fa-plus"></i> 新增快麦商品
+                </button>
+            </div>
+            <div class="toolbar-right">
+                <button class="btn btn-danger" id="kuaimai-btn-delete" aria-disabled="true">
+                    <i class="fas fa-trash"></i> 删除产品
+                </button>
+                <button class="btn btn-import" id="kuaimai-btn-import">
+                    <i class="fas fa-file-import"></i> 文件导入
+                </button>
+                <button class="btn btn-copy-batch" id="kuaimai-btn-copy-batch">
+                    <i class="fas fa-copy"></i> 批量复制
+                </button>
+            </div>
+        </div>
+
+        <!-- 表头 -->
+        <div class="data-table-header">
+            <div class="table-col col-check">
+                <label class="check-box check-all">
+                    <input type="checkbox" id="kuaimai-check-all" aria-hidden="true">
+                    <span class="check-square"></span>
+                </label>
+            </div>
+            <div class="table-col col-shop">店铺</div>
+            <div class="table-col col-prod-name">产品名称</div>
+            <div class="table-col col-barcode">快麦商品条码</div>
+            <div class="table-col col-business-code">事业部商品编码</div>
+            <div class="table-col col-merchant-code">商家商品标识</div>
+            <div class="table-col col-operate">操作</div>
+        </div>
+
+        <!-- 表格内容容器 -->
+        <div class="data-table-body" id="kuaimai-table-body" tabindex="0">
+            <div class="table-empty show" id="kuaimai-table-empty">
+                <i class="fas fa-search"></i>
+                <p>暂无匹配的快麦商品数据</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- 分页区域 -->
+    <div class="pagination-wrap" id="kuaimai-pagination-wrap" role="navigation" aria-label="分页导航">
+        <div class="page-size">
+            <span>每页显示：</span>
+            <select class="form-control" id="kuaimai-select-pageSize" aria-label="选择每页显示条数">
+                <option value="10" selected>10条</option>
+                <option value="20">20条</option>
+                <option value="50">50条</option>
+                <option value="100">100条</option>
+            </select>
+        </div>
+        <div class="page-stats">
+            共 <span class="total-count" id="kuaimai-total-count">0</span> 条数据 |
+            第 <span class="current-page" id="kuaimai-current-page">1</span> /
+            <span class="total-page" id="kuaimai-total-page">1</span> 页
+        </div>
+        <div class="page-buttons">
+            <button class="btn btn-page" id="kuaimai-btn-prevPage" disabled aria-label="上一页">上一页</button>
+            <button class="btn btn-page" id="kuaimai-btn-nextPage" disabled aria-label="下一页">下一页</button>
+        </div>
+    </div>
+</div>
+
+<!-- 弹窗遮罩 -->
+<div class="modal-mask" id="kuaimai-modal-mask"></div>
+
+<!-- 新增快麦商品弹窗 -->
+<div class="modal-wrap modal-add-product" id="kuaimai-modal-add-product" role="dialog" aria-modal="true"
+    aria-labelledby="kuaimai-modal-add-title">
+    <div class="modal-header">
+        <h3 class="modal-title" id="kuaimai-modal-add-title">
+            <i class="fas fa-plus"></i> 新增快麦商品
+        </h3>
+        <button class="modal-close" id="kuaimai-modal-close-add" aria-label="关闭弹窗">
+            <i class="fas fa-times"></i>
+        </button>
+    </div>
+    <div class="modal-body">
+        <form class="modal-form" id="kuaimai-form-add-product">
+            <div class="form-group">
+                <label class="form-label" for="kuaimai-input-add-shop">
+                    店铺 <span class="required">*</span>
+                </label>
+                <input type="text" class="form-control" name="shop" id="kuaimai-input-add-shop" placeholder="请输入店铺名称" required />
+                <div class="invalid-feedback" id="kuaimai-add-error-shop"></div>
+            </div>
+            <div class="form-group">
+                <label class="form-label" for="kuaimai-input-add-productName">
+                    产品名称 <span class="required">*</span>
+                </label>
+                <input type="text" class="form-control" name="productName" id="kuaimai-input-add-productName"
+                    placeholder="请输入产品名称" required />
+                <div class="invalid-feedback" id="kuaimai-add-error-productName"></div>
+            </div>
+            <div class="form-group">
+                <label class="form-label" for="kuaimai-input-add-barCode">
+                    快麦商品条码 <span class="required">*</span>
+                </label>
+                <input type="text" class="form-control" name="barCode" id="kuaimai-input-add-barCode" placeholder="请输入13位快麦商品条码"
+                    required pattern="\d{13}" />
+                <div class="invalid-feedback" id="kuaimai-add-error-barCode"></div>
+            </div>
+            <div class="form-group">
+                <label class="form-label" for="kuaimai-input-add-businessCode">
+                    事业部商品编码 <span class="required">*</span>
+                </label>
+                <input type="text" class="form-control" name="businessCode" id="kuaimai-input-add-businessCode"
+                    placeholder="请输入事业部编码" required />
+                <div class="invalid-feedback" id="kuaimai-add-error-businessCode"></div>
+            </div>
+            <div class="form-group">
+                <label class="form-label" for="kuaimai-input-add-merchantCode">
+                    商家商品标识 <span class="required">*</span>
+                </label>
+                <input type="text" class="form-control" name="merchantCode" id="kuaimai-input-add-merchantCode"
+                    placeholder="请输入商家商品标识" required />
+                <div class="invalid-feedback" id="kuaimai-add-error-merchantCode"></div>
+            </div>
+        </form>
+    </div>
+    <div class="modal-footer">
+        <button class="btn btn-cancel" id="kuaimai-btn-cancel-add">取消</button>
+        <button class="btn btn-submit btn-primary" id="kuaimai-btn-submit-add">提交保存</button>
+    </div>
+</div>
+
+<!-- Excel导入弹窗 -->
+<div class="modal-wrap modal-import-excel" id="kuaimai-modal-import-excel" role="dialog" aria-modal="true"
+    aria-labelledby="kuaimai-modal-import-title">
+    <div class="modal-header">
+        <h3 class="modal-title" id="kuaimai-modal-import-title">
+            <i class="fas fa-file-import"></i> 快麦商品Excel导入
+        </h3>
+        <button class="modal-close" id="kuaimai-modal-close-import" aria-label="关闭弹窗">
+            <i class="fas fa-times"></i>
+        </button>
+    </div>
+    <div class="modal-body">
+        <div class="import-tips">
+            <p><i class="fas fa-info-circle"></i> 导入说明：</p>
+            <ul>
+                <li>仅支持.xlsx格式Excel文件，大小不超过2MB</li>
+                <li>Excel需包含5列，表头依次为：店铺、产品名称、快麦商品条码、事业部商品编码、商家商品标识</li>
+                <li>快麦商品条码为唯一标识，不可重复，且为13位数字</li>
+                <li>所有字段为必填项，不可留空</li>
+            </ul>
+        </div>
+        <div class="file-upload-wrap">
+            <input type="file" class="file-upload" id="kuaimai-input-excelFile" accept=".xlsx" hidden />
+            <label for="kuaimai-input-excelFile" class="file-upload-btn btn btn-default">
+                <i class="fas fa-upload"></i> 选择Excel文件
+            </label>
+            <span class="file-name" id="kuaimai-text-fileName">未选择任何文件</span>
+        </div>
+    </div>
+    <div class="modal-footer">
+        <button class="btn btn-cancel" id="kuaimai-btn-cancel-import">取消</button>
+        <button class="btn btn-import-submit btn-primary" id="kuaimai-btn-submit-import" disabled>开始导入</button>
+    </div>
+</div>

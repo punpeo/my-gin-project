@@ -14,10 +14,7 @@ import (
 	"go-gin/config"
 )
 
-const (
-	ResultFileName = "merged_result.xlsx"
-	IcolIndex      = 8 // I列 切片下标0开始
-)
+const ResultFileName = "merged_result.xlsx"
 
 // ExcelMergeService Excel合并服务
 type ExcelMergeService struct {
@@ -39,7 +36,13 @@ func (s *ExcelMergeService) GetResultFilePath() string {
 }
 
 // RunMerge 执行合并逻辑
-func (s *ExcelMergeService) RunMerge() (string, error) {
+// iColIndex: 需要写入文件名的列下标(0开始)，外部不传参传8作为默认
+func (s *ExcelMergeService) RunMerge(iColIndex int) (string, error) {
+	// 简单参数校验，不能小于0
+	if iColIndex < 0 {
+		return "", errors.New("列下标不能小于0")
+	}
+
 	// 自动创建源目录、输出目录
 	if err := os.MkdirAll(s.sourceDir, 0755); err != nil {
 		return "", fmt.Errorf("创建源文件目录失败：%w", err)
@@ -94,9 +97,9 @@ func (s *ExcelMergeService) RunMerge() (string, error) {
 
 		switch ext {
 		case ".xls":
-			errProc = s.processXls(filePath, outFile, sheetName, &headerWritten, &writeRow)
+			errProc = s.processXls(filePath, outFile, sheetName, &headerWritten, &writeRow, iColIndex)
 		case ".xlsx":
-			errProc = s.processXlsx(filePath, outFile, sheetName, &headerWritten, &writeRow)
+			errProc = s.processXlsx(filePath, outFile, sheetName, &headerWritten, &writeRow, iColIndex)
 		default:
 			log.Printf("跳过不支持文件：%s", baseName)
 			continue
@@ -115,7 +118,14 @@ func (s *ExcelMergeService) RunMerge() (string, error) {
 }
 
 // processXls 处理xls
-func (s *ExcelMergeService) processXls(filePath string, out *excelize.File, sheet string, headerFlag *bool, rowPtr *int) error {
+func (s *ExcelMergeService) processXls(
+	filePath string,
+	out *excelize.File,
+	sheet string,
+	headerFlag *bool,
+	rowPtr *int,
+	iColIndex int,
+) error {
 	baseName := filepath.Base(filePath)
 	fileNameNoExt := strings.TrimSuffix(baseName, ".xls")
 
@@ -137,24 +147,24 @@ func (s *ExcelMergeService) processXls(filePath string, out *excelize.File, shee
 			var row []string
 			for colIdx := 0; ; colIdx++ {
 				val := rowData.Col(colIdx)
-				if val == "" && colIdx > IcolIndex {
+				if val == "" && colIdx > iColIndex {
 					break
 				}
 				row = append(row, val)
 			}
-			if len(row) <= IcolIndex {
-				fill := make([]string, IcolIndex-len(row)+1)
+			if len(row) <= iColIndex {
+				fill := make([]string, iColIndex-len(row)+1)
 				row = append(row, fill...)
 			}
 
 			if rowIdx == 0 {
 				if !*headerFlag {
-					row[IcolIndex] = "文件名"
+					row[iColIndex] = "文件名"
 				} else {
 					continue
 				}
 			} else {
-				row[IcolIndex] = fileNameNoExt
+				row[iColIndex] = fileNameNoExt
 			}
 
 			cell, _ := excelize.CoordinatesToCellName(1, *rowPtr)
@@ -171,7 +181,14 @@ func (s *ExcelMergeService) processXls(filePath string, out *excelize.File, shee
 }
 
 // processXlsx 处理xlsx
-func (s *ExcelMergeService) processXlsx(filePath string, out *excelize.File, sheet string, headerFlag *bool, rowPtr *int) error {
+func (s *ExcelMergeService) processXlsx(
+	filePath string,
+	out *excelize.File,
+	sheet string,
+	headerFlag *bool,
+	rowPtr *int,
+	iColIndex int,
+) error {
 	baseName := filepath.Base(filePath)
 	fileNameNoExt := strings.TrimSuffix(baseName, ".xlsx")
 
@@ -190,18 +207,18 @@ func (s *ExcelMergeService) processXlsx(filePath string, out *excelize.File, she
 			continue
 		}
 		for rowIdx, row := range rows {
-			if len(row) <= IcolIndex {
-				fill := make([]string, IcolIndex-len(row)+1)
+			if len(row) <= iColIndex {
+				fill := make([]string, iColIndex-len(row)+1)
 				row = append(row, fill...)
 			}
 			if rowIdx == 0 {
 				if !*headerFlag {
-					row[IcolIndex] = "文件名"
+					row[iColIndex] = "文件名"
 				} else {
 					continue
 				}
 			} else {
-				row[IcolIndex] = fileNameNoExt
+				row[iColIndex] = fileNameNoExt
 			}
 			cell, _ := excelize.CoordinatesToCellName(1, *rowPtr)
 			if err := out.SetSheetRow(sheet, cell, &row); err != nil {
